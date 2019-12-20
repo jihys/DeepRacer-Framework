@@ -104,6 +104,7 @@ class DeepRacerEngine:
     # Eval output
     evaluation_metrics_file = None
     evaluation_metrics_path = None
+    evaluation_trials = None
 
     
     # AWS Region
@@ -155,6 +156,11 @@ class DeepRacerEngine:
             self.presets_file_local = kwargs['presets']
         else:
             self.presets_file_local = const.presets_file_local
+            
+        if 'evaluation_trials' in kwargs:
+            self.evaluation_trials = kwargs['evaluation_trials']
+        else:
+            self.evaluation_trials = const.evaluation_trials
 
         #local file where hyperparams will be saved..
         self.presets_hyperp_local = const.tmp_hyperparam_preset
@@ -591,17 +597,17 @@ class DeepRacerEngine:
         os.system("mkdir {}".format(self.tmp_dir))
         print("Create local folder {}".format(self.tmp_dir))
 
-        self.training_metrics_file = "training_metrics.json"
+        self.training_metrics_file = "training_metrics-"+self.job_name+'.json"
         self.training_metrics_path = "{}/{}".format(self.s3_bucket, self.training_metrics_file)
 
-        # Disable
-        def blockPrint():
-            sys.stdout = open(os.devnull, 'w')
+#         # Disable
+#         def blockPrint():
+#             sys.stdout = open(os.devnull, 'w')
 
-        # Restore
-        def enablePrint():
-            sys.stdout.close()
-            sys.stdout = self._original_stdout
+#         # Restore
+#         def enablePrint():
+#             sys.stdout.close()
+#             sys.stdout = self._original_stdout
 
         plt.ion()  ## Note this correction
         fig = plt.figure()
@@ -611,7 +617,7 @@ class DeepRacerEngine:
         y_axis = 'reward_score'
         for i in range(200):
             #     print(i)
-            blockPrint()
+#             blockPrint()
             wait_for_s3_object(self.s3_bucket, self.training_metrics_path, self.tmp_dir)
 
             json_file = "{}/{}".format(self.tmp_dir, self.training_metrics_file)
@@ -619,16 +625,17 @@ class DeepRacerEngine:
                 data = json.load(fp)
                 data = pd.DataFrame(data['metrics'])
 
-            x = data[x_axis].values
-            y = data[y_axis].values
-            #     print(len(x))
-            ax.set_xlim(0, np.max(x))
-            ax.plot(x, y)
-            display(fig)
-            clear_output(wait=True)
+                x = data[x_axis].values
+                y = data[y_axis].values
+                #     print(len(x))
+                ax.set_xlim(0, np.max(x))
+                ax.plot(x, y)
+                display(fig)
+                clear_output(wait=True)
+                plt.pause(0.5)
+#             enablePrint()
 
-            plt.pause(0.5)
-            enablePrint()
+
 
     def configure_evaluation_process(self):
         sys.path.append("./src")
@@ -636,7 +643,7 @@ class DeepRacerEngine:
         self.num_simulation_workers = 1
 
         self.eval_envriron_vars = {
-            "WORLD_NAME": "reinvent_base",
+            "WORLD_NAME": self.track_name,
             "KINESIS_VIDEO_STREAM_NAME": "SilverstoneStream",
             "MODEL_S3_BUCKET": self.s3_bucket,
             "MODEL_S3_PREFIX": self.s3_prefix,
@@ -644,7 +651,7 @@ class DeepRacerEngine:
             "MODEL_METADATA_FILE_S3_KEY": "%s/model_metadata.json" % self.s3_prefix,
             "METRICS_S3_BUCKET": self.s3_bucket,
             "METRICS_S3_OBJECT_KEY": self.s3_bucket + "/evaluation_metrics.json",
-            "NUMBER_OF_TRIALS": "5",
+            "NUMBER_OF_TRIALS": self.evaluation_trials,
             "ROBOMAKER_SIMULATION_JOB_ACCOUNT_ID": self.account_id
         }
 
