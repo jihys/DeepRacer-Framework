@@ -23,6 +23,10 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from IPython.display import display, clear_output
 
+import warnings
+warnings.filterwarnings("ignore")
+
+
 
 class DeepRacerEngine:
     # Select the instance type
@@ -558,7 +562,7 @@ class DeepRacerEngine:
             "REWARD_FILE_S3_KEY": "%s/rewards/reward_function.py" % self.s3_prefix,
             "MODEL_METADATA_FILE_S3_KEY": "%s/model_metadata.json" % self.s3_prefix,
             "METRICS_S3_BUCKET": self.s3_bucket,
-            "METRICS_S3_OBJECT_KEY": self.s3_bucket + "/training_metrics.json",
+            "METRICS_S3_OBJECT_KEY": self.s3_bucket + "/training_metrics-"+self.job_name+".json",
             "TARGET_REWARD_SCORE": "None",
             "NUMBER_OF_EPISODES": "0",
             "ROBOMAKER_SIMULATION_JOB_ACCOUNT_ID": self.account_id
@@ -592,12 +596,13 @@ class DeepRacerEngine:
             print("Job ARN", response["arn"])
 
     def plot_training_output(self):
-
-        self.tmp_dir = "/tmp/{}".format(self.job_name)
+        self.tmp_root = 'tmp/'
+        os.system("mkdir {}".format(self.tmp_root))
+        self.tmp_dir = "tmp/{}".format(self.job_name)
         os.system("mkdir {}".format(self.tmp_dir))
         print("Create local folder {}".format(self.tmp_dir))
 
-        self.training_metrics_file = "training_metrics-"+self.job_name+'.json"
+        self.training_metrics_file = "training_metrics-"+self.job_name+".json"
         self.training_metrics_path = "{}/{}".format(self.s3_bucket, self.training_metrics_file)
 
 #         # Disable
@@ -609,12 +614,13 @@ class DeepRacerEngine:
 #             sys.stdout.close()
 #             sys.stdout = self._original_stdout
 
-        plt.ion()  ## Note this correction
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(5, 3))
+        ax = fig.add_subplot(1, 2, 1)
 
         x_axis = 'episode'
         y_axis = 'reward_score'
+        ytwo_axis = 'completion_percentage'
+        
         for i in range(200):
             #     print(i)
 #             blockPrint()
@@ -627,9 +633,12 @@ class DeepRacerEngine:
 
                 x = data[x_axis].values
                 y = data[y_axis].values
-                #     print(len(x))
+                y2 = data[ytwo_axis].values
+                
                 ax.set_xlim(0, np.max(x))
-                ax.plot(x, y)
+                ax[0].plot(x, y)
+                ax[1].plot(x, y2)
+                fig.tight_layout()
                 display(fig)
                 clear_output(wait=True)
                 plt.pause(0.5)
@@ -650,7 +659,7 @@ class DeepRacerEngine:
             "APP_REGION": self.aws_region,
             "MODEL_METADATA_FILE_S3_KEY": "%s/model_metadata.json" % self.s3_prefix,
             "METRICS_S3_BUCKET": self.s3_bucket,
-            "METRICS_S3_OBJECT_KEY": self.s3_bucket + "/evaluation_metrics.json",
+            "METRICS_S3_OBJECT_KEY": self.s3_bucket + "/evaluation_metrics-"+self.job_name+".json",
             "NUMBER_OF_TRIALS": self.evaluation_trials,
             "ROBOMAKER_SIMULATION_JOB_ACCOUNT_ID": self.account_id
         }
@@ -687,7 +696,7 @@ class DeepRacerEngine:
             print("Job ARN", response["arn"])
 
     def plot_evaluation_output(self):
-        evaluation_metrics_file = "evaluation_metrics.json"
+        evaluation_metrics_file = "evaluation_metrics-"+self.job_name+".json"
         evaluation_metrics_path = "{}/{}".format(self.s3_bucket, evaluation_metrics_file)
         wait_for_s3_object(self.s3_bucket, evaluation_metrics_path, self.tmp_dir)
 
