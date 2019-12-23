@@ -130,6 +130,12 @@ class DeepRacerEngine:
             self.instance_type = kwargs['instance_type']
         else:
             self.instance_type = const.default_instance_type
+            
+        if 'instance_pool_count' in kwargs:
+            self.instance_pool_count = kwargs['instance_pool_count']
+        else:
+            self.instance_pool_count = const.default_instance_pool
+        
 
         if 'job_duration' in kwargs:
             self.job_duration_in_seconds = kwargs['job_duration']
@@ -188,23 +194,24 @@ class DeepRacerEngine:
     def create_hyperparams(self, kwargs):
 
         #first we're going to get all the global variables
+        self.hyperparam_data = {}
         with open(const.default_hyperparam_preset) as fp:
-            data = json.load(fp)
+            self.hyperparam_data = json.load(fp)
             if 'learning_rate' in kwargs:
-                data['learning_rate'] = kwargs['learning_rate']
+                self.hyperparam_data['learning_rate'] = kwargs['learning_rate']
 
             if 'batch_size' in kwargs:
-                data['batch_size'] = kwargs['batch_size']
+                self.hyperparam_data['batch_size'] = kwargs['batch_size']
 
             if 'optimizer_epsilon' in kwargs:
-                data['optimizer_epsilon'] = kwargs['optimizer_epsilon']
+                self.hyperparam_data['optimizer_epsilon'] = kwargs['optimizer_epsilon']
 
             if 'optimization_epochs' in kwargs:
-                data['learning_rate'] = kwargs['learning_rate']
+                self.hyperparam_data['optimization_epochs'] = kwargs['optimization_epochs']
 
             #now write these key,values to file
             with open(const.tmp_hyperparam_preset, 'w') as filew:
-                for k,v in data.items():
+                for k,v in self.hyperparam_data.items():
                     c = '{}={}\n'.format(k,v)
                     filew.write(c)
 
@@ -242,7 +249,7 @@ class DeepRacerEngine:
 
         self.start_simulation_job()
 
-        self.plot_training_output()
+#         self.plot_training_output()
         
 
     def start_model_evaluation(self):
@@ -302,6 +309,7 @@ class DeepRacerEngine:
             print("Using ECR image %s" % self.custom_image_name)
 
     def configure_vpc(self):
+        
         self.ec2 = boto3.client('ec2')
 
         #
@@ -344,7 +352,6 @@ class DeepRacerEngine:
     To learn more about the VPC mode, 
     please visit [this link.](https://docs.aws.amazon.com/sagemaker/latest/dg/train-vpc.html)
     '''
-
     def create_routing_tables(self):
 
         print("Creating Routing Tables")
@@ -441,7 +448,7 @@ class DeepRacerEngine:
                                      dependencies=["common/"],
                                      role=self.sagemaker_role,
                                      train_instance_type=self.instance_type,
-                                     train_instance_count=1,
+                                     train_instance_count=self.instance_pool_count,
                                      output_path=self.s3_output_path,
                                      base_job_name=self.job_name_prefix,
                                      metric_definitions=self.metric_definitions,
@@ -453,6 +460,12 @@ class DeepRacerEngine:
                                          "preset_s3_key": "%s/presets/preset.py" % self.s3_prefix,
                                          "model_metadata_s3_key": "%s/model_metadata.json" % self.s3_prefix,
                                          "environment_s3_key": "%s/environments/deepracer_racetrack_env.py" % self.s3_prefix,
+                                         "batch_size": self.hyperparam_data['batch_size'],
+                                         "num_epochs": self.hyperparam_data['optimization_epochs'],
+                                         "beta_entropy": self.hyperparam_data['beta_entropy'],
+                                         "lr": self.hyperparam_data['learning_rate'],
+                                         "num_episodes_between_training": 20,
+                                         "discount_factor": self.hyperparam_data['discount']
                                      },
                                      subnets=self.deepracer_subnets,
                                      security_group_ids=self.deepracer_security_groups,
@@ -465,13 +478,21 @@ class DeepRacerEngine:
     def configure_kinesis_stream(self):
 
         self.kvs_stream_name = "dr-kvs-{}".format(self.job_name)
-
+        
+        self.kinesis = boto3.client('kinesis')
+        res = self.kinesis.create_stream(
+            StreamName=self.kvs_stream_name,
+            ShardCount = 10)
+            
         # !aws --region {aws_region} kinesisvideo create-stream --stream-name {kvs_stream_name} --media-type video/h264 --data-retention-in-hours 24
         print ("Created kinesis video stream {}".format(self.kvs_stream_name))
+        print(res)
+        
 
     def start_robo_maker(self):
         self.robomaker = boto3.client("robomaker")
 
+    
     def create_simulation_application(self):
         self.robomaker_s3_key = 'robomaker/simulation_ws.tar.gz'
         self.robomaker_source = {'s3Bucket': self.s3_bucket,
@@ -528,10 +549,13 @@ class DeepRacerEngine:
             sim_app_build_location = "./build/output.tar.gz"
             sim_app_build_s3 = self.robomaker_s3_key
             bucket.upload_file(sim_app_build_location, sim_app_build_s3)
+            
+            
 
         self.app_name = "deepracer-notebook-application" + strftime("%y%m%d-%H%M%S", gmtime())
 
         print('App Name: {}'.format(self.app_name))
+        
         try:
             self.response = self.robomaker.create_simulation_application(name=self.app_name,
                                                                          sources=[self.robomaker_source],
@@ -549,7 +573,9 @@ class DeepRacerEngine:
 
     def start_simulation_job(self):
         self.num_simulation_workers = 1
-
+        
+        self.training_metrics_file = "{}/training_metrics.json".format(self.s3_prefix)
+        
         self.envriron_vars = {
             "WORLD_NAME": self.track_name,
             "KINESIS_VIDEO_STREAM_NAME": self.kvs_stream_name,
@@ -562,7 +588,7 @@ class DeepRacerEngine:
             "REWARD_FILE_S3_KEY": "%s/rewards/reward_function.py" % self.s3_prefix,
             "MODEL_METADATA_FILE_S3_KEY": "%s/model_metadata.json" % self.s3_prefix,
             "METRICS_S3_BUCKET": self.s3_bucket,
-            "METRICS_S3_OBJECT_KEY": self.s3_bucket + "/training_metrics-"+self.job_name+".json",
+            "METRICS_S3_OBJECT_KEY": self.training_metrics_file,
             "TARGET_REWARD_SCORE": "None",
             "NUMBER_OF_EPISODES": "0",
             "ROBOMAKER_SIMULATION_JOB_ACCOUNT_ID": self.account_id
@@ -602,8 +628,8 @@ class DeepRacerEngine:
         os.system("mkdir {}".format(self.tmp_dir))
         print("Create local folder {}".format(self.tmp_dir))
 
-        self.training_metrics_file = "training_metrics-"+self.job_name+".json"
-        self.training_metrics_path = "{}/{}".format(self.s3_bucket, self.training_metrics_file)
+        self.training_metrics_file = "training_metrics.json"
+        self.training_metrics_path = "{}/{}".format(self.s3_prefix, self.training_metrics_file)
 
 #         # Disable
 #         def blockPrint():
@@ -650,6 +676,9 @@ class DeepRacerEngine:
         sys.path.append("./src")
 
         self.num_simulation_workers = 1
+        
+        self.evaluation_metrics_file = "{}/training_metrics-{}.json".format(self.s3_prefix, self.job_name)
+
 
         self.eval_envriron_vars = {
             "WORLD_NAME": self.track_name,
@@ -659,7 +688,7 @@ class DeepRacerEngine:
             "APP_REGION": self.aws_region,
             "MODEL_METADATA_FILE_S3_KEY": "%s/model_metadata.json" % self.s3_prefix,
             "METRICS_S3_BUCKET": self.s3_bucket,
-            "METRICS_S3_OBJECT_KEY": self.s3_bucket + "/evaluation_metrics-"+self.job_name+".json",
+            "METRICS_S3_OBJECT_KEY": self.evaluation_metrics_file,
             "NUMBER_OF_TRIALS": self.evaluation_trials,
             "ROBOMAKER_SIMULATION_JOB_ACCOUNT_ID": self.account_id
         }

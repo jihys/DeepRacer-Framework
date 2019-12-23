@@ -111,6 +111,13 @@ def download_custom_files_if_present(s3_client, s3_prefix):
     preset_local_path = os.path.join(CUSTOM_FILES_PATH, "preset.py")
     success_preset_download = s3_client.download_file(s3_key=preset_file_s3_key,
                                                       local_path=preset_local_path)
+    
+    preset_file_s3_key = os.path.normpath(s3_prefix + "/presets/preset_hyperparams.py")
+    preset_local_path = os.path.join(CUSTOM_FILES_PATH, "preset_hyperparams.py")
+    success_preset_download = s3_client.download_file(s3_key=preset_file_s3_key,
+                                                      local_path=preset_local_path)
+    
+    
     return success_preset_download, success_environment_download
 
 

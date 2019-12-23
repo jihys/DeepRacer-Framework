@@ -22,8 +22,6 @@ from rl_coach.architectures import layers
 from rl_coach.architectures.tensorflow_components.layers import Conv2d, Dense
 from rl_coach.architectures.tensorflow_components import utils
 
-import preset_hyperparams as hyperp
-
 from types import FunctionType
 
 # define global dictionary for storing layer type to layer implementation mapping

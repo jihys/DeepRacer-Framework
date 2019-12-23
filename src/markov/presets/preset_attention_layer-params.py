@@ -1,3 +1,6 @@
+import sys
+import os
+
 from rl_coach.agents.clipped_ppo_agent import ClippedPPOAgentParameters
 from rl_coach.base_parameters import VisualizationParameters, PresetValidationParameters
 from rl_coach.core_types import TrainingSteps, EnvironmentEpisodes, EnvironmentSteps
@@ -10,9 +13,7 @@ from rl_coach.filters.observation.observation_to_uint8_filter import Observation
 from rl_coach.graph_managers.basic_rl_graph_manager import BasicRLGraphManager
 from rl_coach.graph_managers.graph_manager import ScheduleParameters
 from rl_coach.schedules import LinearSchedule
-
 from rl_coach.base_parameters import DistributedCoachSynchronizationType
-import preset_hyperparams as hyperp
 
 ### Attention Preset ###
 
@@ -22,7 +23,7 @@ import tensorflow as tf
 from rl_coach.architectures import layers
 from rl_coach.architectures.tensorflow_components.layers import Conv2d, Dense
 from rl_coach.architectures.tensorflow_components import utils
-
+sys.path.append(".")
 import preset_hyperparams as hyperp
 
 from types import FunctionType
