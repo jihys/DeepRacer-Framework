@@ -617,10 +617,26 @@ class DeepRacerEngine:
             self.responses.append(response)
 
         print("Created the following jobs:")
-        job_arns = [response["arn"] for response in self.responses]
+        self.job_arns = [response["arn"] for response in self.responses]
         for response in self.responses:
             print("Job ARN", response["arn"])
+    
+    
+    def stop_training(self):
+        # # Cancelling robomaker job
+        for job_arn in self.job_arns:
+            self.robomaker.cancel_simulation_job(job=job_arn)
 
+        # # Stopping sagemaker training job
+        self.sage_session.sagemaker_client.stop_training_job(TrainingJobName=self.estimator._current_job_name)
+    
+    def clean_up_simualtion_environmnet(self):
+        print('Cleaning Up Simulation Environment')
+        self.robomaker.delete_simulation_application(application=self.simulation_app_arn)
+            
+            
+            
+    
     def plot_training_output(self):
         self.tmp_root = 'tmp/'
         os.system("mkdir {}".format(self.tmp_root))
@@ -637,12 +653,11 @@ class DeepRacerEngine:
         x_axis = 'episode'
         y_axis = 'reward_score'
         ytwo_axis = 'completion_percentage'
-        
+        loops = self.job_duration_in_seconds
+
         with HiddenPrints():
         
-            for i in range(200):
-                #     print(i)
-    #             blockPrint()
+            for i in range(loops):
                 wait_for_s3_object(self.s3_bucket, self.training_metrics_path, self.tmp_dir)
 
                 json_file = "{}/{}".format(self.tmp_dir, self.training_metrics_file)
@@ -654,24 +669,22 @@ class DeepRacerEngine:
                     y = data[y_axis].values
                     y2 = data[ytwo_axis].values
 
-                    ax[0].title.set_text('Reward / Episode')
+                    ax[0].title.set_text('Reward / Episode @ {} Seconds.'.format(i))
                     ax[0].plot(x, y)
-                    ax[1].title.set_text('Track Completion / Episode')
+                    ax[1].title.set_text('Track Completion / Episode @ {} Seconds.'.format(i))
                     ax[1].plot(x, y2)
                     fig.tight_layout()
                     display(fig)
                     clear_output(wait=True)
-                    plt.pause(0.5)
+                    plt.pause(1)
                 
 
-
-
-    def configure_evaluation_process(self):
+    def start_evaluation_process(self):
         sys.path.append("./src")
 
         self.num_simulation_workers = 1
         
-        self.evaluation_metrics_file = "{}/training_metrics-{}.json".format(self.s3_prefix, self.job_name)
+        self.evaluation_metrics_file = "{}/evaluation_metrics.json".format(self.s3_prefix)
 
 
         self.eval_envriron_vars = {
@@ -683,7 +696,7 @@ class DeepRacerEngine:
             "MODEL_METADATA_FILE_S3_KEY": "%s/model_metadata.json" % self.s3_prefix,
             "METRICS_S3_BUCKET": self.s3_bucket,
             "METRICS_S3_OBJECT_KEY": self.evaluation_metrics_file,
-            "NUMBER_OF_TRIALS": self.evaluation_trials,
+            "NUMBER_OF_TRIALS": str(self.evaluation_trials),
             "ROBOMAKER_SIMULATION_JOB_ACCOUNT_ID": self.account_id
         }
 
@@ -719,8 +732,8 @@ class DeepRacerEngine:
             print("Job ARN", response["arn"])
 
     def plot_evaluation_output(self):
-        evaluation_metrics_file = "evaluation_metrics-"+self.job_name+".json"
-        evaluation_metrics_path = "{}/{}".format(self.s3_bucket, evaluation_metrics_file)
+        evaluation_metrics_file = "evaluation_metrics.json"
+        evaluation_metrics_path = "{}/{}".format(self.s3_prefix, evaluation_metrics_file)
         wait_for_s3_object(self.s3_bucket, evaluation_metrics_path, self.tmp_dir)
 
         json_file = "{}/{}".format(self.tmp_dir, evaluation_metrics_file)
