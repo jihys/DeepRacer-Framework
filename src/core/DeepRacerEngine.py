@@ -631,44 +631,38 @@ class DeepRacerEngine:
         self.training_metrics_file = "training_metrics.json"
         self.training_metrics_path = "{}/{}".format(self.s3_prefix, self.training_metrics_file)
 
-#         # Disable
-#         def blockPrint():
-#             sys.stdout = open(os.devnull, 'w')
-
-#         # Restore
-#         def enablePrint():
-#             sys.stdout.close()
-#             sys.stdout = self._original_stdout
-
-        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(5, 3))
-        ax = fig.add_subplot(1, 2, 1)
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(15, 6))
+#         ax = fig.add_subplot(1, 2, 1)
 
         x_axis = 'episode'
         y_axis = 'reward_score'
         ytwo_axis = 'completion_percentage'
         
-        for i in range(200):
-            #     print(i)
-#             blockPrint()
-            wait_for_s3_object(self.s3_bucket, self.training_metrics_path, self.tmp_dir)
+        with HiddenPrints():
+        
+            for i in range(200):
+                #     print(i)
+    #             blockPrint()
+                wait_for_s3_object(self.s3_bucket, self.training_metrics_path, self.tmp_dir)
 
-            json_file = "{}/{}".format(self.tmp_dir, self.training_metrics_file)
-            with open(json_file) as fp:
-                data = json.load(fp)
-                data = pd.DataFrame(data['metrics'])
+                json_file = "{}/{}".format(self.tmp_dir, self.training_metrics_file)
+                with open(json_file) as fp:
+                    data = json.load(fp)
+                    data = pd.DataFrame(data['metrics'])
 
-                x = data[x_axis].values
-                y = data[y_axis].values
-                y2 = data[ytwo_axis].values
+                    x = data[x_axis].values
+                    y = data[y_axis].values
+                    y2 = data[ytwo_axis].values
+
+                    ax[0].title.set_text('Reward / Episode')
+                    ax[0].plot(x, y)
+                    ax[1].title.set_text('Track Completion / Episode')
+                    ax[1].plot(x, y2)
+                    fig.tight_layout()
+                    display(fig)
+                    clear_output(wait=True)
+                    plt.pause(0.5)
                 
-                ax.set_xlim(0, np.max(x))
-                ax[0].plot(x, y)
-                ax[1].plot(x, y2)
-                fig.tight_layout()
-                display(fig)
-                clear_output(wait=True)
-                plt.pause(0.5)
-#             enablePrint()
 
 
 
@@ -741,14 +735,14 @@ class DeepRacerEngine:
         display(df)
 
 
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
 
-
-
-
-
-
-
-
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout
 
 
 
