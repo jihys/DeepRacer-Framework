@@ -7,6 +7,7 @@ import numpy as np
 import subprocess
 
 sys.path.append("common")
+from botocore.errorfactory import ClientError
 import constant as const
 from misc import get_execution_role, wait_for_s3_object
 from docker_utils import build_and_push_docker_image
@@ -506,49 +507,54 @@ class DeepRacerEngine:
                                  'version': '1.x'}
 
         bucket = self.s3.Bucket(self.s3_bucket)
+        
+        download = False
+        try:
+            self.s3.Object(Bucket=self.s3_bucket, Key=self.robomaker_s3_key).load()
+        except ClientError:
+            download = True
+        
+        if download:
+            if not os.path.exists('./build/output.tar.gz'):
+                print("Using the latest simapp from public s3 bucket")
 
-        if not os.path.exists('./build/output.tar.gz'):
-            print("Using the latest simapp from public s3 bucket")
+                # Download Robomaker simApp for the deepracer public s3 bucket
+                copy_source = {
+                    'Bucket': 'deepracer-managed-resources-us-east-1',
+                    'Key': 'deepracer-simapp-notebook.tar.gz'
+                }
 
-            # Download Robomaker simApp for the deepracer public s3 bucket
-            # !aws s3 cp {self.simulation_application_bundle_location} ./
-            # simulation_application_bundle_location = "s3://deepracer-managed-resources-us-east-1/deepracer-simapp-notebook.tar.gz"
-            copy_source = {
-                'Bucket': 'deepracer-managed-resources-us-east-1',
-                'Key': 'deepracer-simapp-notebook.tar.gz'
-            }
+                simulation_application_bundle_s3 = './'
+                self.s3.Bucket('deepracer-managed-resources-us-east-1').download_file('deepracer-simapp-notebook.tar.gz',
+                                                                                      './deepracer-simapp-notebook.tar.gz')
 
-            simulation_application_bundle_s3 = './'
-            self.s3.Bucket('deepracer-managed-resources-us-east-1').download_file('deepracer-simapp-notebook.tar.gz',
-                                                                                  './deepracer-simapp-notebook.tar.gz')
+                # Remove if the Robomaker sim-app is present in s3 bucket
+                sim_app_filename = self.robomaker_s3_key
+                bucket.delete_objects(
+                    Delete={
+                        'Objects': [
+                            {
+                                'Key': sim_app_filename
+                            },
+                        ],
+                        'Quiet': True
+                    })
 
-            # Remove if the Robomaker sim-app is present in s3 bucket
-            sim_app_filename = self.robomaker_s3_key
-            bucket.delete_objects(
-                Delete={
-                    'Objects': [
-                        {
-                            'Key': sim_app_filename
-                        },
-                    ],
-                    'Quiet': True
-                })
+                # Uploading the Robomaker SimApp to your S3 bucket
+                simulation_application_bundle_location = "./deepracer-simapp-notebook.tar.gz"
+                simulation_application_bundle_s3 = self.robomaker_s3_key
+                bucket.upload_file(simulation_application_bundle_location, simulation_application_bundle_s3)
 
-            # Uploading the Robomaker SimApp to your S3 bucket
-            simulation_application_bundle_location = "./deepracer-simapp-notebook.tar.gz"
-            simulation_application_bundle_s3 = self.robomaker_s3_key
-            bucket.upload_file(simulation_application_bundle_location, simulation_application_bundle_s3)
+                # Cleanup the locally downloaded version of SimApp
+                sim_app_filename = './deepracer-simapp-notebook.tar.gz'
+                os.remove(sim_app_filename)
 
-            # Cleanup the locally downloaded version of SimApp
-            sim_app_filename = './deepracer-simapp-notebook.tar.gz'
-            os.remove(sim_app_filename)
-
-        else:
-            print("Using the simapp from build directory")
-            # !aws s3 cp ./build/output.tar.gz s3://{self.s3_bucket}/{self.robomaker_s3_key}
-            sim_app_build_location = "./build/output.tar.gz"
-            sim_app_build_s3 = self.robomaker_s3_key
-            bucket.upload_file(sim_app_build_location, sim_app_build_s3)
+            else:
+                print("Using the simapp from build directory")
+                # !aws s3 cp ./build/output.tar.gz s3://{self.s3_bucket}/{self.robomaker_s3_key}
+                sim_app_build_location = "./build/output.tar.gz"
+                sim_app_build_s3 = self.robomaker_s3_key
+                bucket.upload_file(sim_app_build_location, sim_app_build_s3)
             
             
 
@@ -678,6 +684,7 @@ class DeepRacerEngine:
                     clear_output(wait=True)
                     plt.pause(1)
                 
+    
 
     def start_evaluation_process(self):
         sys.path.append("./src")
