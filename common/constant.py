@@ -4,7 +4,7 @@ entry_point = "training_worker.py"
 source_dir = 'src'
 
 #Training Params
-default_instance_type = "ml.c4.2xlarge" #For GPU use 'ml.p3.2xlarge'
+default_instance_type = "ml.c5.xlarge" #For GPU use 'ml.p3.2xlarge'
 default_instance_pool = 1
 default_job_duration = 3600
 default_hyperparam_preset = 'src/markov/presets/preset_hyperparams.json'

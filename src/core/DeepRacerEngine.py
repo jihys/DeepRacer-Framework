@@ -215,6 +215,31 @@ class DeepRacerEngine:
                 for k,v in self.hyperparam_data.items():
                     c = '{}={}\n'.format(k,v)
                     filew.write(c)
+                    
+    def configure_environment(self):
+        
+        print('********************************')
+        print('PERFORMING ALL DOCKER, VPC, AND ROUTING TABLE WORK....')
+        ## Configure The S3 Bucket which this job will work for
+        self.configure_s3_bucket()
+        ## Configure the IAM role and ensure that the correct access priv are available
+        self.create_iam_role()
+
+        self.build_docker_container()
+
+        self.configure_vpc()
+
+        self.create_routing_tables()
+
+        self.upload_environments_and_rewards_to_s3()
+
+        self.configure_metrics()
+
+        self.configure_estimator()
+
+        self.configure_kinesis_stream()
+
+        self.start_robo_maker()
 
 
 
@@ -481,13 +506,13 @@ class DeepRacerEngine:
         self.kvs_stream_name = "dr-kvs-{}".format(self.job_name)
         
         self.kinesis = boto3.client('kinesis')
-        res = self.kinesis.create_stream(
-            StreamName=self.kvs_stream_name,
-            ShardCount = 10)
+#         res = self.kinesis.create_stream(
+#             StreamName=self.kvs_stream_name,
+#             ShardCount = 10)
             
         # !aws --region {aws_region} kinesisvideo create-stream --stream-name {kvs_stream_name} --media-type video/h264 --data-retention-in-hours 24
         print ("Created kinesis video stream {}".format(self.kvs_stream_name))
-        print(res)
+#         print(res)
         
 
     def start_robo_maker(self):
@@ -510,10 +535,11 @@ class DeepRacerEngine:
         
         download = False
         try:
-            self.s3.Object(Bucket=self.s3_bucket, Key=self.robomaker_s3_key).load()
+            self.s3.Object(self.s3_bucket,self.robomaker_s3_key).load()
         except ClientError:
             download = True
         
+        #for now we will always download!
         if download:
             if not os.path.exists('./build/output.tar.gz'):
                 print("Using the latest simapp from public s3 bucket")
@@ -660,7 +686,7 @@ class DeepRacerEngine:
         y_axis = 'reward_score'
         ytwo_axis = 'completion_percentage'
         loops = self.job_duration_in_seconds
-
+        x_entries =  0
         with HiddenPrints():
         
             for i in range(loops):
@@ -683,9 +709,15 @@ class DeepRacerEngine:
                     display(fig)
                     clear_output(wait=True)
                     plt.pause(1)
-                
+                if x_entries == len(x):
+                    clear_output(wait=True)
+                    display(fig)
+                    break
+                else:
+                    x_entries = len(x)
+                    
     
-
+                                                  
     def start_evaluation_process(self):
         sys.path.append("./src")
 
@@ -739,6 +771,7 @@ class DeepRacerEngine:
             print("Job ARN", response["arn"])
 
     def plot_evaluation_output(self):
+        
         evaluation_metrics_file = "evaluation_metrics.json"
         evaluation_metrics_path = "{}/{}".format(self.s3_prefix, evaluation_metrics_file)
         wait_for_s3_object(self.s3_bucket, evaluation_metrics_path, self.tmp_dir)
@@ -753,6 +786,178 @@ class DeepRacerEngine:
         df = df[['trial', 'completion_percentage', 'elapsed_time']]
 
         display(df)
+        
+        
+        
+        
+    ### Starting here all methods related to multi-model training
+    def param_gen_batch_sizes(self, min_batch = 64, max_batch = 512, 
+                              job_name_prefix= None, track_name = 'reinvent_base'):
+    
+        if job_name_prefix:
+            batches = []
+            btch = min_batch 
+            while btch <= max_batch:
+                batches.append(btch)
+                btch *= 2
+            print(batches)
+
+            model_params = []
+            job_name = job_name_prefix+'-batchsize-'
+            for batch_size in batches:
+
+                params = {
+                'job_name': job_name+'{}'.format(batch_size),
+                'track_name': track_name,
+                'job_duration': 3600,
+                'batch_size':batch_size,
+                'evaluation_trials':5
+                }
+                model_params.append(params)
+            print('{} Hyperparameter configs generated'.format(len(model_params)))
+            
+            return model_params
+        
+        
+     ### Starting here all methods related to multi-model training
+    def param_gen_tracks(self, job_name_prefix= None, 
+                          batch_size = 64,
+                         job_duration = 3600,
+                          track_names = ['reinvent_base','Oval_track', 'Bowtie_track']):
+
+        if job_name_prefix:
+
+            print(track_names)
+
+            model_params = []
+            job_name = job_name_prefix+'-track-'
+            for track in track_names:
+
+                params = {
+                'job_name': job_name+'{}'.format(track.replace('_','-')),
+                'track_name': track,
+                'job_duration': job_duration,
+                'batch_size':batch_size,
+                'evaluation_trials':5
+                }
+                model_params.append(params)
+
+            print('{} Hyperparameter configs generated'.format(len(model_params)))
+
+            return model_params
+        else:
+            raise Exception('A Job Name Prefix needs to be specified. Exiting')
+        
+   
+    def start_multi_model_simulations(self,params):
+    
+        drs = {}
+        for param in params:
+
+            #let's create a DeepRacerEngine instance and kick things off
+            dr = DeepRacerEngine(param)
+            dr.start_training_testing_process()
+            drs[param['job_name']] = dr
+            time.sleep(5)
+
+        return drs
+
+    
+    
+    def plot_multi_model_runs_output(self, drs):
+    
+        
+        #create root for testing
+        tmp_root = 'tmp/'
+        os.system("mkdir {}".format(tmp_root))
+    
+        job_names = []
+        tmp_dirs = []
+        lngest_job_duration = 0
+        for k,dr in drs.items():
+            dr.tmp_dir = "tmp/{}".format(dr.job_name)
+            os.system("mkdir {}".format(dr.tmp_dir))
+            print("Create local folder {}".format(dr.tmp_dir))
+            
+            if dr.job_duration_in_seconds > lngest_job_duration:
+                lngest_job_duration = dr.job_duration_in_seconds
+                
+            dr.training_metrics_file = "training_metrics.json"
+            dr.training_metrics_path = "{}/{}".format(dr.s3_prefix, dr.training_metrics_file)
+            
+
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(15, 6))
+#         ax = fig.add_subplot(1, 2, 1)
+
+        x_axis = 'episode'
+        y_axis = 'reward_score'
+        ytwo_axis = 'completion_percentage'
+        
+        
+        
+        loops = lngest_job_duration
+
+        with HiddenPrints():
+        
+            for i in range(loops):
+                try:
+                    ax[0].legend_ = None
+                except:
+                    pass
+                xs = {}
+                ys = {}
+                y2s = {}
+                for k,dr in drs.items():
+                    
+                    wait_for_s3_object(dr.s3_bucket, dr.training_metrics_path, dr.tmp_dir)
+
+                    json_file = "{}/{}".format(dr.tmp_dir, dr.training_metrics_file)
+                    with open(json_file) as fp:
+                        data = json.load(fp)
+                        data = pd.DataFrame(data['metrics'])                
+                        x = data[x_axis].values
+                        y = data[y_axis].values
+                        y2 = data[ytwo_axis].values
+                        xs[k] = x
+                        ys[k] = y
+                        y2s[k] = y2
+                        
+                #now plot them all together
+                for k,x in xs.items():
+                    ax[0].title.set_text('Reward / Episode @ {} Seconds.'.format(i))
+                    ax[0].plot(x, ys[k], label=k)
+                    ax[1].title.set_text('Track Completion / Episode @ {} Seconds.'.format(i))
+                    ax[1].plot(x, y2s[k], label=k)
+#                     ax[0].legend(loc="upper left")
+
+                fig.tight_layout()
+                display(fig)
+                clear_output(wait=True)
+                plt.pause(1)
+                
+    def multi_model_evaluation(self, drs):
+
+        dfs = []
+        for k,dr in drs.items():
+
+            evaluation_metrics_file = "evaluation_metrics.json"
+            evaluation_metrics_path = "{}/{}".format(dr.s3_prefix, evaluation_metrics_file)
+            wait_for_s3_object(dr.s3_bucket, evaluation_metrics_path, dr.tmp_dir)
+
+            json_file = "{}/{}".format(dr.tmp_dir, evaluation_metrics_file)
+            with open(json_file) as fp:
+                data = json.load(fp)
+
+            df = pd.DataFrame(data['metrics'])
+            # Converting milliseconds to seconds
+            df['elapsed_time'] = df['elapsed_time_in_milliseconds'] / 1000
+            df['job'] = dr.job_name
+            df = df[['trial', 'completion_percentage', 'elapsed_time']]
+            dfs.append(df)
+
+        df = pd.concat(dfs) 
+        display(df)
+
 
 
 class HiddenPrints:
