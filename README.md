@@ -16,7 +16,6 @@ In this repository, the original SageMaker example has been extended to provide 
 
 Original Files 
 
-* `deepracer_rl.ipynb`: notebook for training autonomous race car.
 
 * `Dockerfile`: Custom docker instead of using SageMaker default docker
 
@@ -33,7 +32,10 @@ Original Files
 
 Additional Files 
 
+* `DeepRacer_Configure.ipynb`: Configure DeepRacer Backend and IAM Access Rights
+
 * `DeepRacer_Framework.ipynb`: SageMaker Notebook providing difference scenarios for training and evaluating DeepRacer simulations
+
 * `common/`: helper function to build docker files.
     * `constant.py`: Constant file containing fixed constants used in the DeepRacer Engine Class
 * `src/`: helper function to build docker files.
@@ -55,11 +57,11 @@ Additional Files
 6. Select the git repository and clone this repository.
 7. Then click create notebook instance button at the button
 8. This takes like 2 min to create your notebook instance. Then click on the newly created instance and click on the juypter notebook.
-9. First Run the `DeepRacer_configure.ipynb` Notebook in order to ensure thre correct IAM group and acess controls have been configured 
+9. First Run the `DeepRacer_Configure.ipynb` Notebook in order to ensure thre correct IAM group and acess controls have been configured 
 10. You will see all the github files and now run `DeepRacer_Framework.ipynb`
 
 
-Note: Run clean robomaker & sagemaker commands only when you are done with training. These can be found in the `DeepRacer_configure.ipynb` Notebook.
+Note: Run clean robomaker & sagemaker commands only when you are done with training. These can be found in the `DeepRacer_Configure.ipynb` Notebook.
 
 
 ## DeepRacer Paper
