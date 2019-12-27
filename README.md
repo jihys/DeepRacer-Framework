@@ -1,8 +1,15 @@
-# DeepRacer notebook using Amazon SageMaker RL and AWS RoboMaker services
+# AWS DeepRacer Custom Framework (Amazon SageMaker RL and AWS RoboMaker service)
 
-This repository contains examples of how to use RL to train an autonomous deepracer. The original soure code can be found ([AWS DeepRacer SageMaker Example](https://github.com/awslabs/amazon-sagemaker-examples/tree/master/reinforcement_learning/rl_deepracer_robomaker_coach_gazebo). The original SageMaker repository provided a sample framework for running an AWS DeepRacer simulation and evaluation using fixed neural network architectures, hyperparameters, race tracks, and evaluation metrics.
+This repository contains examples of how to use RL to train an autonomous deepracer. The original soure code can be found here: [AWS DeepRacer SageMaker Example](https://github.com/awslabs/amazon-sagemaker-examples/tree/master/reinforcement_learning/rl_deepracer_robomaker_coach_gazebo). The original SageMaker repository provided a sample framework for running an AWS DeepRacer simulation and evaluation using fixed neural network architectures, hyperparameters, race tracks, and evaluation metrics.
 
 In this repository, the original SageMaker example has been extended to provide a configurable environment for tuning different aspects of the DeepRacer. 
+
+- Scenario 1: Single Model Training with Configurable Hyperparameters (Simulation and Training)
+  
+- Scenario 2: Parallel Mult-Model Training with Configurable Hyperparameters (Simulation and Training)
+
+- Scenario 3: Parallel Multi-Track Training with Configurable Hyperparameters (Simulation and Training)
+
 
 
 ## Contents
