@@ -1,9 +1,13 @@
 # DeepRacer notebook using Amazon SageMaker RL and AWS RoboMaker services
 
-This folder contains examples of how to use RL to train an autonomous deepracer. This is a jailbreaker for the AWS DeepRacer. This gives a glimse of architecture used to get the DeepRacer working.
+This repository contains examples of how to use RL to train an autonomous deepracer. The original soure code can be found ([AWS DeepRacer SageMaker Example](https://github.com/awslabs/amazon-sagemaker-examples/tree/master/reinforcement_learning/rl_deepracer_robomaker_coach_gazebo). The original SageMaker repository provided a sample framework for running an AWS DeepRacer simulation and evaluation using fixed neural network architectures, hyperparameters, race tracks, and evaluation metrics.
+
+In this repository, the original SageMaker example has been extended to provide a configurable environment for tuning different aspects of the DeepRacer. 
 
 
 ## Contents
+
+Original Files 
 
 * `deepracer_rl.ipynb`: notebook for training autonomous race car.
 
@@ -20,6 +24,20 @@ This folder contains examples of how to use RL to train an autonomous deepracer.
 
 * `common/`: helper function to build docker files.
 
+Additional Files 
+
+* `DeepRacer_Framework.ipynb`: SageMaker Notebook providing difference scenarios for training and evaluating DeepRacer simulations
+* `common/`: helper function to build docker files.
+    * `constant.py`: Constant file containing fixed constants used in the DeepRacer Engine Class
+* `src/`: helper function to build docker files.
+    * `core/`:
+        * `DeepRacerEngine.py`: Wrapper Class for all DeepRacer Related Operations
+    * `markov/presets/`: 
+        * `preset_hyperparameters.json`: Preset hyperparameters for DeepRacer Model
+    * `markov/rewards`: 
+        * `complex_reward.py`: Template for Advanced reward function for all reward parameter mappings
+    
+
 ## How to use the notebook
 
 1. Login to your AWS account - SageMaker service ([SageMaker Link](https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/dashboard))
@@ -30,8 +48,12 @@ This folder contains examples of how to use RL to train an autonomous deepracer.
 6. Select the git repository and clone this repository.
 7. Then click create notebook instance button at the button
 8. This takes like 2 min to create your notebook instance. Then click on the newly created instance and click on the juypter notebook.
-9. You will see all the github files and now run `deepracer_rl.ipynb`
-10. Run clean robomaker & sagemaker commands in the script only when you are done with training.
+9. First Run the `DeepRacer_configure.ipynb` Notebook in order to ensure thre correct IAM group and acess controls have been configured 
+10. You will see all the github files and now run `DeepRacer_Framework.ipynb`
+
+
+Note: Run clean robomaker & sagemaker commands only when you are done with training. These can be found in the `DeepRacer_configure.ipynb` Notebook.
+
 
 ## DeepRacer Paper
 
