@@ -957,6 +957,18 @@ class DeepRacerEngine:
 
         df = pd.concat(dfs) 
         display(df)
+        
+        
+        
+    #Misc Functions
+    def delete_all_simulations(self):
+        
+        sims = self.robomaker.list_simulation_jobs()
+        for sim in sims['simulationJobSummaries']:
+
+            self.robomaker.delete_simulation_application(application=sim['arn'])
+    
+            print('deleted ',sim['simulationApplicationNames'])
 
 
 
