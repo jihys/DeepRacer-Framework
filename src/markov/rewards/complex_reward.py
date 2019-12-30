@@ -1,11 +1,13 @@
+## Credits goto https://github.com/VilemR/AWS_DeepRacer
+
 import math
 import traceback
 
 
-class RewardCalculator:
+class RewardEvaluator:
 
     
-    MAX_SPEED = float(5.0)
+    MAX_SPEED = float(10.0)
     MIN_SPEED = float(1.5) #MIN_SPEED should be less than 1.66 m/s.
 
    
@@ -27,7 +29,7 @@ class RewardCalculator:
 
     # A range the reward value must fit in.
     PENALTY_MAX = 0.001
-    REWARD_MAX = 89999 
+    REWARD_MAX = 1000 
 
     # params is a set of input values provided by the DeepRacer environment.
     params = None
@@ -85,6 +87,7 @@ class RewardCalculator:
         if 'waypoints' in status: del status['waypoints']
         status['debug_log'] = self.log_message
         print(status)
+        
 
     # Gets ind'th waypoint from the list of all waypoints retrieved in params['waypoints']. Waypoints are circuit track
     # specific (every time params is provided it is same list for particular circuit). If index is out of range (greater
@@ -96,6 +99,7 @@ class RewardCalculator:
             return self.waypoints[len(self.waypoints) + index_way_point]
         else:
             return self.waypoints[index_way_point]
+        
         
 
     # Calculates distance [m] between two waypoints [x1,y1] and [x2,y2]
@@ -187,6 +191,8 @@ class RewardCalculator:
             return True
         else:
             return False
+        
+        
 
     # Provides direction of the next turn in order to let you reward right position to the center line (before the left
     # turn position of the car sligthly right can be rewarded (and vice versa) - see is_in_optimized_corridor()
@@ -207,6 +213,7 @@ class RewardCalculator:
                     return "STRAIGHT"
             current_waypoint_index = current_waypoint_index + 1
 
+    
     
     # Based on the direction of the next turn it indicates the car is on the right side to the center line in order to
     # drive through smoothly - see get_expected_turn_direction().
@@ -260,12 +267,17 @@ class RewardCalculator:
             message = 'NULL'
         self.log_message = self.log_message + str(message) + '|'
 
+      
+              
     # Here you can implement your logic to calculate reward value based on input parameters (params) and use
     # implemented features (as methods above)
-    def evaluate(self):
+    def evaluate(self, print_logs=False):
         self.init_self(self.params)
         result_reward = float(0.001)
+        
+        
         try:
+            
             # No reward => Fatal behaviour, NOREWARD!  (out of track, reversed, sleeping)
             if self.all_wheels_on_track == False or self.is_reversed == True or (self.speed < (0.1 * self.MAX_SPEED)):
                 self.log_feature("all_wheels_on_track or is_reversed issue")
@@ -277,7 +289,7 @@ class RewardCalculator:
             if abs(self.get_car_heading_error()) <= self.SMOOTH_STEERING_ANGLE_TRESHOLD:
                 self.log_feature("getCarHeadingOK")
                 result_reward = result_reward + self.REWARD_MAX * 0.3
-
+            
             if abs(self.steering_angle) <= self.SMOOTH_STEERING_ANGLE_TRESHOLD:
                 self.log_feature("getSteeringAngleOK")
                 result_reward = result_reward + self.REWARD_MAX * 0.15
@@ -298,8 +310,8 @@ class RewardCalculator:
                 result_reward = result_reward + float(self.REWARD_MAX * 0.6)
 
             # REWAR - Progress bonus
-            TOTAL_NUM_STEPS = 150
-            if (self.steps % 100 == 0) and self.progress > (self.steps / TOTAL_NUM_STEPS):
+            TOTAL_NUM_STEPS = 50
+            if (self.steps % 50 == 0) and self.progress > (self.steps / TOTAL_NUM_STEPS):
                 self.log_feature("progressingOk")
                 result_reward = result_reward + self.REWARD_MAX * 0.4
 
@@ -313,20 +325,20 @@ class RewardCalculator:
             print(traceback.format_exc())
 
         # Finally - check reward value does not exceed maximum value
-        if result_reward > 900000:
-            result_reward = 900000
+        if result_reward > REWARD_MAX:
+            result_reward = REWARD_MAX
 
         self.log_feature(result_reward)
-        # self.status_to_string()
+        if print_logs:
+            self.status_to_string()
 
         return float(result_reward)
 
 
 """
-This is the core function called by the environment to calculate reward value for every point of time of the training. 
-params: input values for the reward calculation (see above)
+This is called by the AWS RoboMaker Simulator - Do not change name.
 """
 
 def reward_function(params):
-    re = RewardCalculator(params)
+    re = RewardEvaluator(params)
     return float(re.evaluate())
