@@ -1,24 +1,14 @@
-# -*- coding: utf-8 -*-
-
 import math
 import traceback
 
 
-class RewardEvaluator:
+class RewardCalculator:
 
-    # CALCULATION CONSTANTS - change for the performance fine tuning
-
-    # Define minimum and maximum expected speed interval for the training. Both values should be corresponding to
-    # parameters you are going to use for the Action space. Set MAX_SPEED equal to maximum speed defined there,
-    # MIN_SPEED should be lower (just a bit) then expected minimum defined speed (e.g. Max speed set to 5 m/s,
-    # speed granularity 3 => therefore, MIN_SPEED should be less than 1.66 m/s.
+    
     MAX_SPEED = float(5.0)
-    MIN_SPEED = float(1.5)
+    MIN_SPEED = float(1.5) #MIN_SPEED should be less than 1.66 m/s.
 
-    # Define maximum steering angle according to the Action space settings. Smooth steering angle threshold is used to
-    # set a steering angle still considered as "smooth". The value must be higher than minimum steering angle determined
-    # by the steering Action space. E.g Max steering 30 degrees, granularity 3 => SMOOTH_STEERING_ANGLE_TRESHOLD should
-    # be higher than 10 degrees.
+   
     MAX_STEERING_ANGLE = 30
     SMOOTH_STEERING_ANGLE_TRESHOLD = 15  # Greater than minimum angle defined in action space
 
@@ -29,21 +19,20 @@ class RewardEvaluator:
 
     # Constant to define accepted distance of the car from the center line.
     CENTERLINE_FOLLOW_RATIO_TRESHOLD = 0.12
-
     # Constant to define a threshold (in degrees), representing max. angle within SAFE_HORIZON_DISTANCE. If the car is
     # supposed to start steering and the angle of the farthest waypoint is above the threshold, the car is supposed to
     # slow down
+    
     ANGLE_IS_CURVE = 3
 
     # A range the reward value must fit in.
     PENALTY_MAX = 0.001
-    REWARD_MAX = 89999  # 100000
+    REWARD_MAX = 89999 
 
-    # params is a set of input values provided by the DeepRacer environment. For each calculation
-    # this is provided
+    # params is a set of input values provided by the DeepRacer environment.
     params = None
 
-    # Class properties - status values extracted from "params" input
+    # All Params 
     all_wheels_on_track = None
     x = None
     y = None
@@ -62,6 +51,7 @@ class RewardEvaluator:
     nearest_next_waypoint_ind = None
 
     log_message = ""
+    
 
     # method used to extract class properties (status values) from input "params"
     def init_self(self, params):
@@ -86,6 +76,7 @@ class RewardEvaluator:
     def __init__(self, params):
         self.params = params
         self.init_self(params)
+        
 
     # Method used to "print" status values and logged messages into AWS log. Be aware of additional cost Amazon will
     # charge you when logging is used heavily!!!
@@ -105,12 +96,15 @@ class RewardEvaluator:
             return self.waypoints[len(self.waypoints) + index_way_point]
         else:
             return self.waypoints[index_way_point]
+        
 
     # Calculates distance [m] between two waypoints [x1,y1] and [x2,y2]
     @staticmethod
     def get_way_points_distance(previous_waypoint, next_waypoint):
         return math.sqrt(pow(next_waypoint[1] - previous_waypoint[1], 2) + pow(next_waypoint[0] - previous_waypoint[0], 2))
 
+    
+    
     # Calculates heading direction between two waypoints - angle in cartesian layout. Clockwise values
     # 0 to -180 degrees, anti clockwise 0 to +180 degrees
     @staticmethod
@@ -118,6 +112,7 @@ class RewardEvaluator:
         track_direction = math.atan2(next_waypoint[1] - previous_waypoint[1], next_waypoint[0] - previous_waypoint[0])
         return math.degrees(track_direction)
 
+    
     # Calculates the misalignment of the heading of the car () compared to center line of the track (defined by previous and
     # the next waypoint (the car is between them)
     def get_car_heading_error(self):  # track direction vs heading
@@ -127,6 +122,8 @@ class RewardEvaluator:
         track_direction = math.degrees(track_direction)
         return track_direction - self.heading
 
+    
+    
     # Based on CarHeadingError (how much the car is misaligned with th direction of the track) and based on the "safe
     # horizon distance it is indicating the current speed (params['speed']) is/not optimal.
     def get_optimum_speed_ratio(self):
@@ -153,6 +150,8 @@ class RewardEvaluator:
                     return float(1.0)
             current_wp_index = current_wp_index + 1
 
+            
+            
     # Calculates angle of the turn the car is right now (degrees). It is angle between previous and next segment of the
     # track (previous_waypoint - closest_waypoint and closest_waypoint - next_waypoint)
     def get_turn_angle(self):
@@ -171,6 +170,8 @@ class RewardEvaluator:
         else:
             return result
 
+        
+        
     # Indicates the car is in turn
     def is_in_turn(self):
         if abs(self.get_turn_angle()) >= self.ANGLE_IS_CURVE:
@@ -206,6 +207,7 @@ class RewardEvaluator:
                     return "STRAIGHT"
             current_waypoint_index = current_waypoint_index + 1
 
+    
     # Based on the direction of the next turn it indicates the car is on the right side to the center line in order to
     # drive through smoothly - see get_expected_turn_direction().
     def is_in_optimized_corridor(self):
@@ -244,6 +246,7 @@ class RewardEvaluator:
                 else:
                     return False
 
+                
     def is_optimum_speed(self):
         if abs(self.speed - (self.get_optimum_speed_ratio() * self.MAX_SPEED)) < (self.MAX_SPEED * 0.15) and self.MIN_SPEED <= self.speed <= self.MAX_SPEED:
             return True
@@ -322,12 +325,8 @@ class RewardEvaluator:
 """
 This is the core function called by the environment to calculate reward value for every point of time of the training. 
 params: input values for the reward calculation (see above)
-
-Usually, this function contains all reward calculations a logic implemented. Instead, this code example is instantiating 
-RewardEvaluator which has implemented a set of features one can easily combine and use.
 """
 
-
 def reward_function(params):
-    re = RewardEvaluator(params)
+    re = RewardCalculator(params)
     return float(re.evaluate())

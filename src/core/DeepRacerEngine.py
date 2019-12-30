@@ -687,9 +687,11 @@ class DeepRacerEngine:
         ytwo_axis = 'completion_percentage'
         loops = self.job_duration_in_seconds
         x_entries =  0
+        start_time = time.time()
         with HiddenPrints():
         
             for i in range(loops):
+                
                 wait_for_s3_object(self.s3_bucket, self.training_metrics_path, self.tmp_dir)
 
                 json_file = "{}/{}".format(self.tmp_dir, self.training_metrics_file)
@@ -700,15 +702,15 @@ class DeepRacerEngine:
                     x = data[x_axis].values
                     y = data[y_axis].values
                     y2 = data[ytwo_axis].values
-
-                    ax[0].title.set_text('Reward / Episode @ {} Seconds.'.format(i))
+                    time_diff = time.time() - start_time
+                    ax[0].title.set_text('Reward / Episode @ {} Seconds.'.format(time_diff))
                     ax[0].plot(x, y)
-                    ax[1].title.set_text('Track Completion / Episode @ {} Seconds.'.format(i))
+                    ax[1].title.set_text('Track Completion / Episode @ {} Seconds.'.format(time_diff))
                     ax[1].plot(x, y2)
                     fig.tight_layout()
                     display(fig)
                     clear_output(wait=True)
-                    plt.pause(1)
+                    plt.pause(5)
                 if x_entries == len(x):
                     clear_output(wait=True)
                     display(fig)
@@ -969,6 +971,27 @@ class DeepRacerEngine:
             self.robomaker.delete_simulation_application(application=sim['arn'])
     
             print('deleted ',sim['simulationApplicationNames'])
+
+        
+    def delete_s3_simulation_resources(self):
+        
+        #to-do 
+        print('Deleted s3 resources related to the {} Job.'.format(self.job_name))
+        bucket = self.s3.Bucket(self.s3_bucket)  
+        bucket.objects.filter(Prefix=s3_prefix).delete()
+        
+        ## Uncomment if you only want to clean the s3 bucket
+        # sagemaker_s3_folder = "s3://{}/{}".format(s3_bucket, s3_prefix)
+        # !aws s3 rm --recursive {sagemaker_s3_folder}
+
+        # robomaker_s3_folder = "s3://{}/{}".format(s3_bucket, job_name)
+        # !aws s3 rm --recursive {robomaker_s3_folder}
+
+        # robomaker_sim_app = "s3://{}/{}".format(s3_bucket, 'robomaker')
+        # !aws s3 rm --recursive {robomaker_sim_app}
+
+        # model_output = "s3://{}/{}".format(s3_bucket, s3_bucket)
+        # !aws s3 rm --recursive {model_output}
 
 
 
