@@ -869,7 +869,6 @@ class DeepRacerEngine:
     
         drs = {}
         for param in params:
-
             #let's create a DeepRacerEngine instance and kick things off
             dr = DeepRacerEngine(param)
             dr.start_training_testing_process()
@@ -877,7 +876,15 @@ class DeepRacerEngine:
             time.sleep(5)
 
         return drs
-
+    
+    
+    def start_multi_model_evaluation(self, drs):
+    
+        for k,dr in drs.items():
+            #Kickoff the evaluation!
+            print('Kicking off RoboMaker Simulation for Job: {}.'.format(dr.job_name))
+            dr.start_evaluation_process()
+            time.sleep(5)
     
     
     def plot_multi_model_runs_output(self, drs):
@@ -951,7 +958,9 @@ class DeepRacerEngine:
                 clear_output(wait=True)
                 plt.pause(5)
                 
-    def multi_model_evaluation(self, drs):
+    def plot_multi_model_evaluation(self, drs):
+        
+        
 
         dfs = []
         for k,dr in drs.items():
