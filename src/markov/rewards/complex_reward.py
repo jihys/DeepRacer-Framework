@@ -275,7 +275,6 @@ class RewardEvaluator:
         self.init_self(self.params)
         result_reward = float(0.001)
         
-        
         try:
             
             # No reward => Fatal behaviour, NOREWARD!  (out of track, reversed, sleeping)
@@ -288,11 +287,11 @@ class RewardEvaluator:
             # Right heading, no crazy steering
             if abs(self.get_car_heading_error()) <= self.SMOOTH_STEERING_ANGLE_TRESHOLD:
                 self.log_feature("getCarHeadingOK")
-                result_reward = result_reward + self.REWARD_MAX * 0.3
+                result_reward = result_reward + float(self.REWARD_MAX * 0.3)
             
             if abs(self.steering_angle) <= self.SMOOTH_STEERING_ANGLE_TRESHOLD:
                 self.log_feature("getSteeringAngleOK")
-                result_reward = result_reward + self.REWARD_MAX * 0.15
+                result_reward = result_reward + float(self.REWARD_MAX * 0.15)
 
             # REWARD100 - LATER ADVANCED complex learning
             # Ideal path, speed wherever possible, carefully in corners
@@ -325,8 +324,8 @@ class RewardEvaluator:
             print(traceback.format_exc())
 
         # Finally - check reward value does not exceed maximum value
-        if result_reward > REWARD_MAX:
-            result_reward = REWARD_MAX
+        if result_reward > self.REWARD_MAX:
+            result_reward = self.REWARD_MAX
 
         self.log_feature(result_reward)
         if print_logs:
@@ -335,6 +334,7 @@ class RewardEvaluator:
         return float(result_reward)
 
 
+    
 """
 This is called by the AWS RoboMaker Simulator - Do not change name.
 """

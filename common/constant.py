@@ -4,7 +4,7 @@ entry_point = "training_worker.py"
 source_dir = 'src'
 
 #Training Params
-default_instance_type = "ml.c5.xlarge" #For GPU use 'ml.p3.2xlarge'
+default_instance_type = "ml.c4.2xlarge" #For GPU use 'ml.p3.2xlarge'
 default_instance_pool = 1
 default_job_duration = 3600
 default_hyperparam_preset = 'src/markov/presets/preset_hyperparams.json'
@@ -22,4 +22,4 @@ evaluation_trials = 5
 envir_file_local = 'src/markov/environments/deepracer_racetrack_env.py'
 reward_file_local = 'src/markov/rewards/complex_reward.py'
 model_meta_file_local = 'src/markov/actions/model_metadata_10_state.json'
-presets_file_local = 'src/markov/presets/preset_attention_layer.py'
+presets_file_local = 'src/markov/presets/default.py'

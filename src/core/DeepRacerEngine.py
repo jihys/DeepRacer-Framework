@@ -506,9 +506,16 @@ class DeepRacerEngine:
         self.kvs_stream_name = "dr-kvs-{}".format(self.job_name)
         
         self.kinesis = boto3.client('kinesis')
-#         res = self.kinesis.create_stream(
+        
+        res = self.kinesis.create_stream(
+            StreamName=self.kvs_stream_name,
+            ShardCount = 10
+        )
+        
+#         res = self.kinesis.decrease_stream_retention_period(
 #             StreamName=self.kvs_stream_name,
-#             ShardCount = 10)
+#             RetentionPeriodHours=8
+#         )
             
         # !aws --region {aws_region} kinesisvideo create-stream --stream-name {kvs_stream_name} --media-type video/h264 --data-retention-in-hours 24
         print ("Created kinesis video stream {}".format(self.kvs_stream_name))
@@ -688,6 +695,7 @@ class DeepRacerEngine:
         loops = self.job_duration_in_seconds
         x_entries =  0
         start_time = time.time()
+        loops_without_change = 0
         with HiddenPrints():
         
             for i in range(loops):
@@ -712,11 +720,14 @@ class DeepRacerEngine:
                     clear_output(wait=True)
                     plt.pause(5)
                 if x_entries == len(x):
+                    loops_without_change += 1
+                else:
+                    x_entries = len(x)
+                #finally break the loop and finish displaying...
+                if loops_without_change > 5:
                     clear_output(wait=True)
                     display(fig)
                     break
-                else:
-                    x_entries = len(x)
                     
     
                                                   
@@ -771,6 +782,7 @@ class DeepRacerEngine:
         # print("Created the following jobs:")
         for response in responses:
             print("Job ARN", response["arn"])
+            
 
     def plot_evaluation_output(self):
         
@@ -793,8 +805,10 @@ class DeepRacerEngine:
         
         
     ### Starting here all methods related to multi-model training
-    def param_gen_batch_sizes(self, min_batch = 64, max_batch = 512, 
-                              job_name_prefix= None, track_name = 'reinvent_base'):
+    def param_gen_batch_sizes(self, min_batch = 64, max_batch = 512,
+                              job_duration = 3600,
+                              job_name_prefix= None, 
+                              track_name = 'reinvent_base'):
     
         if job_name_prefix:
             batches = []
@@ -811,7 +825,7 @@ class DeepRacerEngine:
                 params = {
                 'job_name': job_name+'{}'.format(batch_size),
                 'track_name': track_name,
-                'job_duration': 3600,
+                'job_duration': job_duration,
                 'batch_size':batch_size,
                 'evaluation_trials':5
                 }
@@ -935,7 +949,7 @@ class DeepRacerEngine:
                 fig.tight_layout()
                 display(fig)
                 clear_output(wait=True)
-                plt.pause(1)
+                plt.pause(5)
                 
     def multi_model_evaluation(self, drs):
 
