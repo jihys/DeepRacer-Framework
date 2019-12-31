@@ -919,7 +919,9 @@ class DeepRacerEngine:
         
         
         loops = lngest_job_duration
-
+        x_entries =  0
+        start_time = time.time()
+        loops_without_change = 0
         with HiddenPrints():
         
             for i in range(loops):
@@ -944,12 +946,15 @@ class DeepRacerEngine:
                         xs[k] = x
                         ys[k] = y
                         y2s[k] = y2
-                        
+                                     
+                time_diff = time.time() - start_time
+       
                 #now plot them all together
                 for k,x in xs.items():
-                    ax[0].title.set_text('Reward / Episode @ {} Seconds.'.format(i))
+                    
+                    ax[0].title.set_text('Reward / Episode @ {} Seconds.'.format(time_diff))
                     ax[0].plot(x, ys[k], label=k)
-                    ax[1].title.set_text('Track Completion / Episode @ {} Seconds.'.format(i))
+                    ax[1].title.set_text('Track Completion / Episode @ {} Seconds.'.format(time_diff))
                     ax[1].plot(x, y2s[k], label=k)
 #                     ax[0].legend(loc="upper left")
 
@@ -958,10 +963,18 @@ class DeepRacerEngine:
                 clear_output(wait=True)
                 plt.pause(5)
                 
+                if x_entries == len(x):
+                    loops_without_change += 1
+                else:
+                    x_entries = len(x)
+                #finally break the loop and finish displaying...
+                if loops_without_change > 20:
+                    clear_output(wait=True)
+                    display(fig)
+                    break
+                
     def plot_multi_model_evaluation(self, drs):
         
-        
-
         dfs = []
         for k,dr in drs.items():
 
