@@ -990,7 +990,7 @@ class DeepRacerEngine:
             # Converting milliseconds to seconds
             df['elapsed_time'] = df['elapsed_time_in_milliseconds'] / 1000
             df['job'] = dr.job_name
-            df = df[['trial', 'completion_percentage', 'elapsed_time']]
+            df = df[['job','trial', 'completion_percentage', 'elapsed_time']]
             dfs.append(df)
 
         df = pd.concat(dfs) 
