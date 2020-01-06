@@ -14,16 +14,10 @@ class RewardEvaluator:
     MAX_STEERING_ANGLE = 30
     SMOOTH_STEERING_ANGLE_TRESHOLD = 15  # Greater than minimum angle defined in action space
 
-    # Constant value used to "ignore" turns in the corresponding distance (in meters). The car is supposed to drive
-    # at MAX_SPEED (getting a higher reward). In case within the distance is a turn, the car is rewarded when slowing
-    # down.
     SAFE_HORIZON_DISTANCE = 0.8  # meters, able to fully stop. See ANGLE_IS_CURVE.
 
     # Constant to define accepted distance of the car from the center line.
     CENTERLINE_FOLLOW_RATIO_TRESHOLD = 0.12
-    # Constant to define a threshold (in degrees), representing max. angle within SAFE_HORIZON_DISTANCE. If the car is
-    # supposed to start steering and the angle of the farthest waypoint is above the threshold, the car is supposed to
-    # slow down
     
     ANGLE_IS_CURVE = 3
 
@@ -74,7 +68,7 @@ class RewardEvaluator:
         self.nearest_previous_waypoint_ind = params['closest_waypoints'][0]
         self.nearest_next_waypoint_ind = params['closest_waypoints'][1]
 
-    # RewardEvaluator Class constructor
+        
     def __init__(self, params):
         self.params = params
         self.init_self(params)
@@ -93,6 +87,7 @@ class RewardEvaluator:
     # specific (every time params is provided it is same list for particular circuit). If index is out of range (greater
     # than len(params['waypoints']) a waypoint from the beginning of the list ir returned.
     def get_way_point(self, index_way_point):
+        
         if index_way_point > (len(self.waypoints) - 1):
             return self.waypoints[index_way_point - (len(self.waypoints))]
         elif index_way_point < 0:
@@ -105,6 +100,7 @@ class RewardEvaluator:
     # Calculates distance [m] between two waypoints [x1,y1] and [x2,y2]
     @staticmethod
     def get_way_points_distance(previous_waypoint, next_waypoint):
+        
         return math.sqrt(pow(next_waypoint[1] - previous_waypoint[1], 2) + pow(next_waypoint[0] - previous_waypoint[0], 2))
 
     
@@ -113,6 +109,7 @@ class RewardEvaluator:
     # 0 to -180 degrees, anti clockwise 0 to +180 degrees
     @staticmethod
     def get_heading_between_waypoints(previous_waypoint, next_waypoint):
+        
         track_direction = math.atan2(next_waypoint[1] - previous_waypoint[1], next_waypoint[0] - previous_waypoint[0])
         return math.degrees(track_direction)
 
@@ -120,6 +117,7 @@ class RewardEvaluator:
     # Calculates the misalignment of the heading of the car () compared to center line of the track (defined by previous and
     # the next waypoint (the car is between them)
     def get_car_heading_error(self):  # track direction vs heading
+        
         next_point = self.get_way_point(self.closest_waypoints[1])
         prev_point = self.get_way_point(self.closest_waypoints[0])
         track_direction = math.atan2(next_point[1] - prev_point[1], next_point[0] - prev_point[0])
@@ -131,6 +129,7 @@ class RewardEvaluator:
     # Based on CarHeadingError (how much the car is misaligned with th direction of the track) and based on the "safe
     # horizon distance it is indicating the current speed (params['speed']) is/not optimal.
     def get_optimum_speed_ratio(self):
+        
         if abs(self.get_car_heading_error()) >= self.MAX_STEERING_ANGLE:
             return float(0.34)
         if abs(self.get_car_heading_error()) >= (self.MAX_STEERING_ANGLE * 0.75):
@@ -217,6 +216,7 @@ class RewardEvaluator:
     
     # Based on the direction of the next turn it indicates the car is on the right side to the center line in order to
     # drive through smoothly - see get_expected_turn_direction().
+    
     def is_in_optimized_corridor(self):
         if self.is_in_turn():
             turn_angle = self.get_turn_angle()
@@ -255,6 +255,7 @@ class RewardEvaluator:
 
                 
     def is_optimum_speed(self):
+        
         if abs(self.speed - (self.get_optimum_speed_ratio() * self.MAX_SPEED)) < (self.MAX_SPEED * 0.15) and self.MIN_SPEED <= self.speed <= self.MAX_SPEED:
             return True
         else:
@@ -271,6 +272,7 @@ class RewardEvaluator:
               
     # Here you can implement your logic to calculate reward value based on input parameters (params) and use
     # implemented features (as methods above)
+    
     def evaluate(self, print_logs=False):
         self.init_self(self.params)
         result_reward = float(0.001)
