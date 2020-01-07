@@ -68,31 +68,43 @@ params = {
 
 The Engine accepts the following parameters:
 Basic Parameters
-* ```job_name``` - Required
-* ```track_name``` - Optional. Default: reinvent_track
+* ```job_name``` - The name of the job. Only Required param
+* ```track_name``` - Optional. Default: ```reinvent_base```
 * ```instance_type```: The type of compute instance
 * ```instance_pool_count```: The number of instances for training
 * ```job_duration``` - The duration in seconds of the training. Default 3600s
-* ```racetrack_env``` - 
-* ```reward_policy``` - 
-* ```meta_file``` - 
-* ```presets``` - 
-Action Space Params:
-* ```custom_action_space``` - 
-* ```min_speed``` - 
-* ```max_speed``` - 
-* ```min_steering_angle``` - 
-* ```max_steering_angle``` - 
-* ```speed_interval``` - 
-* ```steering_angle_interval``` - 
-Hyperparameter Params:
-* ```learning_rate``` - 
-* ```batch_size``` - 
-* ```optimizer_epsilon``` - 
-* ```optimization_epochs``` - 
-* ```discount_factor``` - 
-* ```beta_entropy``` - 
+* ```racetrack_env``` - The environment python file for the racetrack.
+* ```reward_policy``` - The reward policy pythonf file for the simulatiomn
+* ```meta_file``` - The action space metadata file for the similatiom
+* ```presets``` - The preset file for the simulation. This is where changes to the model architecture can be made
 
+Action Space Params:
+* ```custom_action_space``` - True/False. Default False. If set, the following parameters are required.
+* ```min_speed``` - Minimum speed in the action space
+* ```max_speed``` - Maximum Speed in the action Space
+* ```min_steering_angle``` - Minimum Steering Angle
+* ```max_steering_angle``` - Maximium Steering Angle
+* ```speed_interval``` - The speed intervals to calculate the number of entries in the action space
+* ```steering_angle_interval``` - the steering angle intervals to calculate the number of entries in the action space.
+
+Hyperparameter Params:
+* ```learning_rate``` - The learning rate of the optimization function. Default 0.0003
+* ```batch_size``` - The batch size for each training epoch. Default 64
+* ```optimizer_epsilon``` - The optimizater Epsilon. Default 0.00001
+* ```optimization_epochs``` - The optimzation Epochs - Default 10
+* ```discount_factor``` - The discount Factor:  Default 0.999
+* ```beta_entropy``` - Beta Entropy. Default 0.01
+
+
+## Hyperparamter Details
+
+Below provides some details on the hyperparameters within the AWS DeepRacer Framework:
+* Learning rate — Behind the scene, gradient descent function comes into picture to find the maxima(reward). Learning rate is the step function of the gradient descent. Learning rate is the rate at which you alter the parameters to check if you have maxima of the reward function.
+* Batch size — The batch size determines how many data points or sample size is taken into consideration for updating the training model. So if the total sample space is 1200, and the batch size is 120, then there will be 1200/120 = 10 batches.
+* Optimization Epocs - indicates the number of times the training data set will be processed in loop to update the learning parameters. Increase the number of epochs if you have a small training data set to process to get stable results. A larger data set has a smaller value to reduce the time for the training.
+* Discount factor determines the weightage of the future events in order to make a current decision. All events in future will vary, however, how much of that needs to be taken into consideration is provided by the discount factor. E.g. You get $100 today, and it will have $100 value, getting $100 (tomorrow — day +1)will have a value of $90 today with discount factor of 0.9, getting $100 (day after tomorrow — day+2) will have a discount factor of Rs 81 at a discount factor of 0.9 ( 0.9 square X 100).
+* Entropy — This is the measure of the randomness or the impurity in the data. As the AWS DeepRacer uses AWS DeepLense, the data can be fairly clean and free from randomness. That is why we have a default value of 0.01, meaning 1 out of 100 data inputs may not classify the right action.
+* Optimization Epsilon - Gives a balance between exploitation and exploration. Exploitation is when the algorithm makes decision based on information it already has where as exploration is when the algorithm gathers additional information beyond what is already been collected. For instace – exploration helps us find a high reward path that may not have been discovered before. Exploration can be categorical and epsilon. Categorical exploration has a discrete action space. Epsilon exploration has a continuous action space. Epsilon greedy – will decrease the exploration value over time so that it explores a lot at first but later will perform actions more and more based on experience while still allowing for some random exploration.
 
 
 ## How to use the notebook
