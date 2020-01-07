@@ -66,8 +66,9 @@ params = {
 }
 ```
 
-The Engine accepts the following parameters:
-Basic Parameters
+The Engine accepts the following parameters.
+
+Basic Parameters:
 * ```job_name``` - The name of the job. Only Required param
 * ```track_name``` - Optional. Default: ```reinvent_base```
 * ```instance_type```: The type of compute instance
@@ -113,12 +114,17 @@ Below provides some details on the hyperparameters within the AWS DeepRacer Fram
 2. On the left tab select `Notebook instances`
 3. Select `Create notebook instance`
 4. Fill up the notebook instance name. In the Additional configuration select atleast 25GB. This is because docker gets installed and takes up space.
-5. Create a new IAM role. Give root permission
-6. Select the git repository and clone this repository.
-7. Then click create notebook instance button at the button
-8. This takes like 2 min to create your notebook instance. Then click on the newly created instance and click on the juypter notebook.
-9. First Run the `DeepRacer_Configure.ipynb` Notebook in order to ensure thre correct IAM group and acess controls have been configured 
-10. You will see all the github files and now run `DeepRacer_Framework.ipynb`
+5. Create a new IAM role. Give root permission.
+6. Then click create notebook instance button at the button
+7. This takes like 2 min to create your notebook instance. Then click on the newly created instance and click on the juypter notebook.
+8. In the Jupyter Notebook Webpage, click the New Button, and then Select Terminal
+9. In the terminal window type the following commands:
+```bash
+git clone https://github.com/raminetinati/DeepRacer-Framework.git
+```
+10. Return to the Jupyter Notebook Webpage. A new folder should appear named ```DeepRacer-Framework```
+11. First Run the `DeepRacer_Configure.ipynb` Notebook in order to ensure thre correct IAM group and acess controls have been configured 
+12. You will see all the github files and now run `DeepRacer_Framework.ipynb`
 
 
 Note: Run clean robomaker & sagemaker commands only when you are done with training. These can be found in the `DeepRacer_Configure.ipynb` Notebook.
