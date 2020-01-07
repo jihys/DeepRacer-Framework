@@ -25,8 +25,8 @@ import matplotlib.animation as animation
 from IPython.display import display, clear_output
 
 import warnings
-warnings.filterwarnings("ignore")
 
+warnings.filterwarnings("ignore")
 
 
 class DeepRacerEngine:
@@ -111,32 +111,31 @@ class DeepRacerEngine:
     evaluation_metrics_path = None
     evaluation_trials = None
 
-    
     # AWS Region
     aws_region = None
 
     ''' 
     INIT
     '''
-    def __init__(self,kwargs):
+
+    def __init__(self, kwargs):
 
         print('***Deep Racer Engine Backend***')
-        
+
         if 'job_name' in kwargs:
             self.job_name = kwargs['job_name']
         else:
             raise Exception("A Job Name MUST be provided. Stopping execution.")
-            
+
         if 'instance_type' in kwargs:
             self.instance_type = kwargs['instance_type']
         else:
             self.instance_type = const.default_instance_type
-            
+
         if 'instance_pool_count' in kwargs:
             self.instance_pool_count = kwargs['instance_pool_count']
         else:
             self.instance_pool_count = const.default_instance_pool
-        
 
         if 'job_duration' in kwargs:
             self.job_duration_in_seconds = kwargs['job_duration']
@@ -167,15 +166,28 @@ class DeepRacerEngine:
             self.presets_file_local = kwargs['presets']
         else:
             self.presets_file_local = const.presets_file_local
-            
+
+        if 'custom_action_space' in kwargs:
+            if ('min_speed' in kwargs) and ('max_speed' in kwargs) and (
+                    'min_steering_angle' in kwargs) and ('max_steering_angle' in kwargs):
+                
+                # Create the actionspace...
+                self.create_actionspace(kwargs)
+                self.model_meta_file_local = const.model_meta_file_custom_local
+            else:
+                self.model_meta_file_local = const.model_meta_file_local
+
+        else:
+            self.model_meta_file_local = const.model_meta_file_local
+
         if 'evaluation_trials' in kwargs:
             self.evaluation_trials = kwargs['evaluation_trials']
         else:
             self.evaluation_trials = const.evaluation_trials
 
-        #local file where hyperparams will be saved..
+        # local file where hyperparams will be saved..
         self.presets_hyperp_local = const.tmp_hyperparam_preset
-         
+
         self.create_hyperparams(kwargs)
 
         self.sage_session = sagemaker.session.Session()
@@ -191,10 +203,9 @@ class DeepRacerEngine:
             raise Exception("This notebook uses RoboMaker which is available only in US East (N. Virginia),"
                             "US West (Oregon) and EU (Ireland). Please switch to one of these regions.")
 
-
     def create_hyperparams(self, kwargs):
-
-        #first we're going to get all the global variables
+        print('>>Creating Custom Hyperparameters ')
+        # first we're going to get all the global variables
         self.hyperparam_data = {}
         with open(const.default_hyperparam_preset) as fp:
             self.hyperparam_data = json.load(fp)
@@ -210,14 +221,55 @@ class DeepRacerEngine:
             if 'optimization_epochs' in kwargs:
                 self.hyperparam_data['optimization_epochs'] = kwargs['optimization_epochs']
 
-            #now write these key,values to file
+            # now write these key,values to file
             with open(const.tmp_hyperparam_preset, 'w') as filew:
-                for k,v in self.hyperparam_data.items():
-                    c = '{}={}\n'.format(k,v)
+                for k, v in self.hyperparam_data.items():
+                    c = '{}={}\n'.format(k, v)
                     filew.write(c)
-                    
-    def configure_environment(self):
+
+    def create_actionspace(self, kwargs):
+        print('>>Creating Custom Action space')
+        self.action_space_min_speed = kwargs['min_speed']
+        self.action_space_max_speed = kwargs['max_speed']
+        self.action_space_min_steering_angle = kwargs['min_steering_angle']
+        self.action_space_max_steering_angle = kwargs['max_steering_angle']
+        #Optional...
+        if ('speed_interval' in kwargs) and ('steering_angle_interval' in kwargs):
+            self.action_space_speed_interval = kwargs['speed_interval']
+            self.action_space_steering_angle_interval = kwargs['steering_angle_interval']
+        else:
+            self.action_space_speed_interval = 1
+            self.action_space_steering_angle_interval = 5
         
+        min_speed = self.action_space_min_speed
+        max_speed = self.action_space_max_speed
+        speed_interval = self.action_space_speed_interval
+
+        min_steering_angle = self.action_space_min_steering_angle
+        max_steering_angle = self.action_space_max_steering_angle
+        steering_angle_interval = self.action_space_steering_angle_interval
+
+        output = {"action_space": []}
+        index = 0
+        speed = min_speed
+        while speed <= max_speed:
+            steering_angle = min_steering_angle
+            while steering_angle <= max_steering_angle:
+                output["action_space"].append({"index": index,
+                                               "steering_angle": steering_angle,
+                                               "speed": speed}
+                                              )
+                steering_angle += steering_angle_interval
+                index += 1
+            speed += speed_interval
+
+        # now write these key,values to file
+        with open(const.model_meta_file_custom_local, 'w') as filew:
+            json.dump(output, filew)
+        
+
+    def configure_environment(self):
+
         print('********************************')
         print('PERFORMING ALL DOCKER, VPC, AND ROUTING TABLE WORK....')
         ## Configure The S3 Bucket which this job will work for
@@ -241,11 +293,10 @@ class DeepRacerEngine:
 
         self.start_robo_maker()
 
-
-
     ''' 
     TO-ADD
     '''
+
     def start_training_testing_process(self):
 
         print('********************************')
@@ -275,15 +326,13 @@ class DeepRacerEngine:
 
         self.start_simulation_job()
 
-#         self.plot_training_output()
-        
+    #         self.plot_training_output()
 
     def start_model_evaluation(self):
 
         self.configure_evaluation_process()
 
         self.plot_evaluation_output()
-
 
     '''
     Set up the linkage and authentication to the S3 bucket that we want to use for checkpoint and metadata.    
@@ -335,7 +384,7 @@ class DeepRacerEngine:
             print("Using ECR image %s" % self.custom_image_name)
 
     def configure_vpc(self):
-        
+
         self.ec2 = boto3.client('ec2')
 
         #
@@ -378,6 +427,7 @@ class DeepRacerEngine:
     To learn more about the VPC mode, 
     please visit [this link.](https://docs.aws.amazon.com/sagemaker/latest/dg/train-vpc.html)
     '''
+
     def create_routing_tables(self):
 
         print("Creating Routing Tables")
@@ -448,7 +498,6 @@ class DeepRacerEngine:
         print('Cleaning Up Tmp HyperParam file')
         os.remove(const.tmp_hyperparam_preset)
 
-        
     def configure_metrics(self):
 
         self.metric_definitions = [
@@ -504,28 +553,27 @@ class DeepRacerEngine:
     def configure_kinesis_stream(self):
 
         self.kvs_stream_name = "dr-kvs-{}".format(self.job_name)
-        
+
         self.kinesis = boto3.client('kinesis')
-        
+
         res = self.kinesis.create_stream(
             StreamName=self.kvs_stream_name,
-            ShardCount = 10
+            ShardCount=10
         )
-        
-#         res = self.kinesis.decrease_stream_retention_period(
-#             StreamName=self.kvs_stream_name,
-#             RetentionPeriodHours=8
-#         )
-            
+
+        #         res = self.kinesis.decrease_stream_retention_period(
+        #             StreamName=self.kvs_stream_name,
+        #             RetentionPeriodHours=8
+        #         )
+
         # !aws --region {aws_region} kinesisvideo create-stream --stream-name {kvs_stream_name} --media-type video/h264 --data-retention-in-hours 24
         print ("Created kinesis video stream {}".format(self.kvs_stream_name))
-#         print(res)
-        
+
+    #         print(res)
 
     def start_robo_maker(self):
         self.robomaker = boto3.client("robomaker")
 
-    
     def create_simulation_application(self):
         self.robomaker_s3_key = 'robomaker/simulation_ws.tar.gz'
         self.robomaker_source = {'s3Bucket': self.s3_bucket,
@@ -539,14 +587,14 @@ class DeepRacerEngine:
                                  'version': '1.x'}
 
         bucket = self.s3.Bucket(self.s3_bucket)
-        
+
         download = False
         try:
-            self.s3.Object(self.s3_bucket,self.robomaker_s3_key).load()
+            self.s3.Object(self.s3_bucket, self.robomaker_s3_key).load()
         except ClientError:
             download = True
-        
-        #for now we will always download!
+
+        # for now we will always download!
         if download:
             if not os.path.exists('./build/output.tar.gz'):
                 print("Using the latest simapp from public s3 bucket")
@@ -558,8 +606,9 @@ class DeepRacerEngine:
                 }
 
                 simulation_application_bundle_s3 = './'
-                self.s3.Bucket('deepracer-managed-resources-us-east-1').download_file('deepracer-simapp-notebook.tar.gz',
-                                                                                      './deepracer-simapp-notebook.tar.gz')
+                self.s3.Bucket('deepracer-managed-resources-us-east-1').download_file(
+                    'deepracer-simapp-notebook.tar.gz',
+                    './deepracer-simapp-notebook.tar.gz')
 
                 # Remove if the Robomaker sim-app is present in s3 bucket
                 sim_app_filename = self.robomaker_s3_key
@@ -588,13 +637,11 @@ class DeepRacerEngine:
                 sim_app_build_location = "./build/output.tar.gz"
                 sim_app_build_s3 = self.robomaker_s3_key
                 bucket.upload_file(sim_app_build_location, sim_app_build_s3)
-            
-            
 
         self.app_name = "deepracer-notebook-application" + strftime("%y%m%d-%H%M%S", gmtime())
 
         print('App Name: {}'.format(self.app_name))
-        
+
         try:
             self.response = self.robomaker.create_simulation_application(name=self.app_name,
                                                                          sources=[self.robomaker_source],
@@ -612,9 +659,9 @@ class DeepRacerEngine:
 
     def start_simulation_job(self):
         self.num_simulation_workers = 1
-        
+
         self.training_metrics_file = "{}/training_metrics.json".format(self.s3_prefix)
-        
+
         self.envriron_vars = {
             "WORLD_NAME": self.track_name,
             "KINESIS_VIDEO_STREAM_NAME": self.kvs_stream_name,
@@ -659,8 +706,7 @@ class DeepRacerEngine:
         self.job_arns = [response["arn"] for response in self.responses]
         for response in self.responses:
             print("Job ARN", response["arn"])
-    
-    
+
     def stop_training(self):
         # # Cancelling robomaker job
         for job_arn in self.job_arns:
@@ -668,14 +714,11 @@ class DeepRacerEngine:
 
         # # Stopping sagemaker training job
         self.sage_session.sagemaker_client.stop_training_job(TrainingJobName=self.estimator._current_job_name)
-    
+
     def clean_up_simualtion_environmnet(self):
         print('Cleaning Up Simulation Environment')
         self.robomaker.delete_simulation_application(application=self.simulation_app_arn)
-            
-            
-            
-    
+
     def plot_training_output(self):
         self.tmp_root = 'tmp/'
         os.system("mkdir {}".format(self.tmp_root))
@@ -687,19 +730,19 @@ class DeepRacerEngine:
         self.training_metrics_path = "{}/{}".format(self.s3_prefix, self.training_metrics_file)
 
         fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(15, 6))
-#         ax = fig.add_subplot(1, 2, 1)
+        #         ax = fig.add_subplot(1, 2, 1)
 
         x_axis = 'episode'
         y_axis = 'reward_score'
         ytwo_axis = 'completion_percentage'
         loops = self.job_duration_in_seconds
-        x_entries =  0
+        x_entries = 0
         start_time = time.time()
         loops_without_change = 0
         with HiddenPrints():
-        
-            for i in range(loops):
-                
+
+            while self.check_if_simulation_active():
+
                 wait_for_s3_object(self.s3_bucket, self.training_metrics_path, self.tmp_dir)
 
                 json_file = "{}/{}".format(self.tmp_dir, self.training_metrics_file)
@@ -719,25 +762,24 @@ class DeepRacerEngine:
                     display(fig)
                     clear_output(wait=True)
                     plt.pause(5)
-                if x_entries == len(x):
-                    loops_without_change += 1
-                else:
-                    x_entries = len(x)
-                #finally break the loop and finish displaying...
-                if loops_without_change > 5:
-                    clear_output(wait=True)
-                    display(fig)
-                    break
-                    
-    
-                                                  
+#                 if x_entries == len(x):
+#                     loops_without_change += 1
+#                 else:
+#                     x_entries = len(x)
+#                 # finally break the loop and finish displaying...
+#                 if loops_without_change > 5:
+#                     clear_output(wait=True)
+#                     display(fig)
+#                     break
+            clear_output(wait=True)
+            display(fig)
+
     def start_evaluation_process(self):
         sys.path.append("./src")
 
         self.num_simulation_workers = 1
-        
-        self.evaluation_metrics_file = "{}/evaluation_metrics.json".format(self.s3_prefix)
 
+        self.evaluation_metrics_file = "{}/evaluation_metrics.json".format(self.s3_prefix)
 
         self.eval_envriron_vars = {
             "WORLD_NAME": self.track_name,
@@ -782,10 +824,9 @@ class DeepRacerEngine:
         # print("Created the following jobs:")
         for response in responses:
             print("Job ARN", response["arn"])
-            
 
     def plot_evaluation_output(self):
-        
+
         evaluation_metrics_file = "evaluation_metrics.json"
         evaluation_metrics_path = "{}/{}".format(self.s3_prefix, evaluation_metrics_file)
         wait_for_s3_object(self.s3_bucket, evaluation_metrics_path, self.tmp_dir)
@@ -800,61 +841,55 @@ class DeepRacerEngine:
         df = df[['trial', 'completion_percentage', 'elapsed_time']]
 
         display(df)
-        
-        
-        
-        
+
     ### Starting here all methods related to multi-model training
-    def param_gen_batch_sizes(self, min_batch = 64, max_batch = 512,
-                              job_duration = 3600,
-                              job_name_prefix= None, 
-                              track_name = 'reinvent_base'):
-    
+    def param_gen_batch_sizes(self, min_batch=64, max_batch=512,
+                              job_duration=3600,
+                              job_name_prefix=None,
+                              track_name='reinvent_base'):
+
         if job_name_prefix:
             batches = []
-            btch = min_batch 
+            btch = min_batch
             while btch <= max_batch:
                 batches.append(btch)
                 btch *= 2
             print(batches)
 
             model_params = []
-            job_name = job_name_prefix+'-batchsize-'
+            job_name = job_name_prefix + '-batchsize-'
             for batch_size in batches:
-
                 params = {
-                'job_name': job_name+'{}'.format(batch_size),
-                'track_name': track_name,
-                'job_duration': job_duration,
-                'batch_size':batch_size,
-                'evaluation_trials':5
+                    'job_name': job_name + '{}'.format(batch_size),
+                    'track_name': track_name,
+                    'job_duration': job_duration,
+                    'batch_size': batch_size,
+                    'evaluation_trials': 5
                 }
                 model_params.append(params)
             print('{} Hyperparameter configs generated'.format(len(model_params)))
-            
+
             return model_params
-        
-        
-     ### Starting here all methods related to multi-model training
-    def param_gen_tracks(self, job_name_prefix= None, 
-                          batch_size = 64,
-                         job_duration = 3600,
-                          track_names = ['reinvent_base','Oval_track', 'Bowtie_track']):
+
+    ### Starting here all methods related to multi-model training
+    def param_gen_tracks(self, job_name_prefix=None,
+                         batch_size=64,
+                         job_duration=3600,
+                         track_names=['reinvent_base', 'Oval_track', 'Bowtie_track']):
 
         if job_name_prefix:
 
             print(track_names)
 
             model_params = []
-            job_name = job_name_prefix+'-track-'
+            job_name = job_name_prefix + '-track-'
             for track in track_names:
-
                 params = {
-                'job_name': job_name+'{}'.format(track.replace('_','-')),
-                'track_name': track,
-                'job_duration': job_duration,
-                'batch_size':batch_size,
-                'evaluation_trials':5
+                    'job_name': job_name + '{}'.format(track.replace('_', '-')),
+                    'track_name': track,
+                    'job_duration': job_duration,
+                    'batch_size': batch_size,
+                    'evaluation_trials': 5
                 }
                 model_params.append(params)
 
@@ -863,68 +898,61 @@ class DeepRacerEngine:
             return model_params
         else:
             raise Exception('A Job Name Prefix needs to be specified. Exiting')
-        
-   
-    def start_multi_model_simulations(self,params):
-    
+
+    def start_multi_model_simulations(self, params):
+
         drs = {}
         for param in params:
-            #let's create a DeepRacerEngine instance and kick things off
+            # let's create a DeepRacerEngine instance and kick things off
             dr = DeepRacerEngine(param)
             dr.start_training_testing_process()
             drs[param['job_name']] = dr
             time.sleep(5)
 
         return drs
-    
-    
+
     def start_multi_model_evaluation(self, drs):
-    
-        for k,dr in drs.items():
-            #Kickoff the evaluation!
+
+        for k, dr in drs.items():
+            # Kickoff the evaluation!
             print('Kicking off RoboMaker Simulation for Job: {}.'.format(dr.job_name))
             dr.start_evaluation_process()
             time.sleep(5)
-    
-    
+
     def plot_multi_model_runs_output(self, drs):
-    
-        
-        #create root for testing
+
+        # create root for testing
         tmp_root = 'tmp/'
         os.system("mkdir {}".format(tmp_root))
-    
+
         job_names = []
         tmp_dirs = []
         lngest_job_duration = 0
-        for k,dr in drs.items():
+        for k, dr in drs.items():
             dr.tmp_dir = "tmp/{}".format(dr.job_name)
             os.system("mkdir {}".format(dr.tmp_dir))
             print("Create local folder {}".format(dr.tmp_dir))
-            
+
             if dr.job_duration_in_seconds > lngest_job_duration:
                 lngest_job_duration = dr.job_duration_in_seconds
-                
+
             dr.training_metrics_file = "training_metrics.json"
             dr.training_metrics_path = "{}/{}".format(dr.s3_prefix, dr.training_metrics_file)
-            
 
         fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(15, 6))
-#         ax = fig.add_subplot(1, 2, 1)
+        #         ax = fig.add_subplot(1, 2, 1)
 
         x_axis = 'episode'
         y_axis = 'reward_score'
         ytwo_axis = 'completion_percentage'
-        
-        
-        
+
         loops = lngest_job_duration
-        x_entries =  0
+        x_entries = 0
         start_time = time.time()
         loops_without_change = 0
         with HiddenPrints():
-        
-            for i in range(loops):
+
+            while self.check_if_simulation_active():
                 try:
                     ax[0].legend_ = None
                 except:
@@ -932,52 +960,49 @@ class DeepRacerEngine:
                 xs = {}
                 ys = {}
                 y2s = {}
-                for k,dr in drs.items():
-                    
+                for k, dr in drs.items():
                     wait_for_s3_object(dr.s3_bucket, dr.training_metrics_path, dr.tmp_dir)
 
                     json_file = "{}/{}".format(dr.tmp_dir, dr.training_metrics_file)
                     with open(json_file) as fp:
                         data = json.load(fp)
-                        data = pd.DataFrame(data['metrics'])                
+                        data = pd.DataFrame(data['metrics'])
                         x = data[x_axis].values
                         y = data[y_axis].values
                         y2 = data[ytwo_axis].values
                         xs[k] = x
                         ys[k] = y
                         y2s[k] = y2
-                                     
+
                 time_diff = time.time() - start_time
-       
-                #now plot them all together
-                for k,x in xs.items():
-                    
+
+                # now plot them all together
+                for k, x in xs.items():
                     ax[0].title.set_text('Reward / Episode @ {} Seconds.'.format(time_diff))
                     ax[0].plot(x, ys[k], label=k)
                     ax[1].title.set_text('Track Completion / Episode @ {} Seconds.'.format(time_diff))
                     ax[1].plot(x, y2s[k], label=k)
-#                     ax[0].legend(loc="upper left")
+                #                     ax[0].legend(loc="upper left")
 
                 fig.tight_layout()
                 display(fig)
                 clear_output(wait=True)
                 plt.pause(5)
-                
-                if x_entries == len(x):
-                    loops_without_change += 1
-                else:
-                    x_entries = len(x)
-                #finally break the loop and finish displaying...
-                if loops_without_change > 20:
-                    clear_output(wait=True)
-                    display(fig)
-                    break
-                
-    def plot_multi_model_evaluation(self, drs):
-        
-        dfs = []
-        for k,dr in drs.items():
 
+#                 if x_entries == len(x):
+#                     loops_without_change += 1
+#                 else:
+#                     x_entries = len(x)
+#                 # finally break the loop and finish displaying...
+#                 if loops_without_change > 20:
+            clear_output(wait=True)
+            display(fig)
+                    
+
+    def plot_multi_model_evaluation(self, drs):
+
+        dfs = []
+        for k, dr in drs.items():
             evaluation_metrics_file = "evaluation_metrics.json"
             evaluation_metrics_path = "{}/{}".format(dr.s3_prefix, evaluation_metrics_file)
             wait_for_s3_object(dr.s3_bucket, evaluation_metrics_path, dr.tmp_dir)
@@ -990,46 +1015,40 @@ class DeepRacerEngine:
             # Converting milliseconds to seconds
             df['elapsed_time'] = df['elapsed_time_in_milliseconds'] / 1000
             df['job'] = dr.job_name
-            df = df[['job','trial', 'completion_percentage', 'elapsed_time']]
+            df = df[['job', 'trial', 'completion_percentage', 'elapsed_time']]
             dfs.append(df)
 
-        df = pd.concat(dfs) 
+        df = pd.concat(dfs)
         display(df)
-        
-        
-        
-    #Misc Functions
-    def delete_all_simulations(self):
-        
+
+    # Misc Functions
+    def check_if_simulation_active(self):
+
         sims = self.robomaker.list_simulation_jobs()
         for sim in sims['simulationJobSummaries']:
+            if sim['arn'] in self.job_arns:
+                if sim['status'] == 'Running':
+#                     print(sim)
+                    return True
+                else:
+                    return False
 
-            self.robomaker.delete_simulation_application(application=sim['arn'])
     
-            print('deleted ',sim['simulationApplicationNames'])
+    def delete_all_simulations(self):
 
-        
+        sims = self.robomaker.list_simulation_applications()
+        for sim in sims['simulationApplicationSummaries']:
+            self.robomaker.delete_simulation_application(application=sim['arn'])
+            print('deleted ', sim['simulationApplicationNames'])
+
     def delete_s3_simulation_resources(self):
-        
-        #to-do 
+
+        # to-do
         print('Deleted s3 resources related to the {} Job.'.format(self.job_name))
-        bucket = self.s3.Bucket(self.s3_bucket)  
+        bucket = self.s3.Bucket(self.s3_bucket)
         bucket.objects.filter(Prefix=s3_prefix).delete()
-        
-        ## Uncomment if you only want to clean the s3 bucket
-        # sagemaker_s3_folder = "s3://{}/{}".format(s3_bucket, s3_prefix)
-        # !aws s3 rm --recursive {sagemaker_s3_folder}
 
-        # robomaker_s3_folder = "s3://{}/{}".format(s3_bucket, job_name)
-        # !aws s3 rm --recursive {robomaker_s3_folder}
-
-        # robomaker_sim_app = "s3://{}/{}".format(s3_bucket, 'robomaker')
-        # !aws s3 rm --recursive {robomaker_sim_app}
-
-        # model_output = "s3://{}/{}".format(s3_bucket, s3_bucket)
-        # !aws s3 rm --recursive {model_output}
-
-
+  
 
 class HiddenPrints:
     def __enter__(self):

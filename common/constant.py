@@ -22,4 +22,5 @@ evaluation_trials = 5
 envir_file_local = 'src/markov/environments/deepracer_racetrack_env.py'
 reward_file_local = 'src/markov/rewards/reward_estimator_optimal_path.py'
 model_meta_file_local = 'src/markov/actions/model_metadata_10_state.json'
+model_meta_file_custom_local = 'src/markov/actions/model_metadata_tmp.json'
 presets_file_local = 'src/markov/presets/default.py'
