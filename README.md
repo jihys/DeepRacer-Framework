@@ -45,7 +45,55 @@ Additional Files
         * `preset_hyperparameters.json`: Preset hyperparameters for DeepRacer Model
     * `markov/rewards`: 
         * `complex_reward.py`: Template for Advanced reward function for all reward parameter mappings
-    
+
+## DeepRacer Engine Configuration
+
+### Parameters
+
+The ```DeepRacerEngine``` Class requires input parameters when instantiating a new Object. 
+
+For example, if we want to instantiate a new simulation, we provide the ```DeepRacerEngine``` with the following parameters such as:
+
+```python
+
+params = {
+    'job_name': 'optimal-path',
+    'track_name':'reinvent_base',
+    'reward_policy':'src/markov/rewards/reward_estimator_optimal_path.py',
+    'job_duration': 600,
+    'batch_size':256,
+    'evaluation_trials':5
+}
+```
+
+The Engine accepts the following parameters:
+Basic Parameters
+* ```job_name``` - Required
+* ```track_name``` - Optional. Default: reinvent_track
+* ```instance_type```: The type of compute instance
+* ```instance_pool_count```: The number of instances for training
+* ```job_duration``` - The duration in seconds of the training. Default 3600s
+* ```racetrack_env``` - 
+* ```reward_policy``` - 
+* ```meta_file``` - 
+* ```presets``` - 
+Action Space Params:
+* ```custom_action_space``` - 
+* ```min_speed``` - 
+* ```max_speed``` - 
+* ```min_steering_angle``` - 
+* ```max_steering_angle``` - 
+* ```speed_interval``` - 
+* ```steering_angle_interval``` - 
+Hyperparameter Params:
+* ```learning_rate``` - 
+* ```batch_size``` - 
+* ```optimizer_epsilon``` - 
+* ```optimization_epochs``` - 
+* ```discount_factor``` - 
+* ```beta_entropy``` - 
+
+
 
 ## How to use the notebook
 
